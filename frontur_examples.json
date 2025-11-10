@@ -1,0 +1,34 @@
+[
+  {
+    "question": "Total de turistas franceses en la Comunidad de Madrid en los últimos 5 años",
+    "sql": "SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','COMUNIDADDEMADRID','MADRID') GROUP BY CAST(SUBSTR(YM,1,4) AS INT) ORDER BY anio"
+  },
+  {
+    "question": "Evolución mensual de turistas franceses en Madrid durante los últimos 12 meses",
+    "sql": "SELECT YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','COMUNIDADDEMADRID','MADRID') GROUP BY YM ORDER BY YM DESC LIMIT 12"
+  },
+  {
+    "question": "Top 10 países emisores de turistas hacia España el último año",
+    "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT PAIS_RESIDENCIA, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y GROUP BY PAIS_RESIDENCIA ORDER BY total DESC LIMIT 10"
+  },
+  {
+    "question": "Distribución de turistas por comunidad autónoma destino en el año más reciente",
+    "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y GROUP BY CCAA_DESTINO ORDER BY total DESC"
+  },
+  {
+    "question": "Número de turistas alemanes en Canarias durante los últimos 3 años",
+    "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('DE','DEU','ALEMANIA','GERMANY') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('CANARIAS','ISLASCANARIAS') AND CAST(SUBSTR(YM,1,4) AS INT) BETWEEN y-2 AND y GROUP BY anio ORDER BY anio"
+  },
+  {
+    "question": "Evolución anual de turistas británicos en Cataluña",
+    "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('UK','GB','REINO UNIDO','UNITED KINGDOM') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('CATALUNYA','CATALUNA','CATALONIA') GROUP BY anio ORDER BY anio"
+  },
+  {
+    "question": "Turistas italianos en Andalucía en 2025 (mes a mes)",
+    "sql": "SELECT YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('IT','ITA','ITALIA','ITALY') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('ANDALUCIA') GROUP BY YM ORDER BY YM"
+  },
+  {
+    "question": "Top 5 CCAA por turistas internacionales en 2025",
+    "sql": "SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 GROUP BY CCAA_DESTINO ORDER BY total DESC LIMIT 5"
+  }
+]

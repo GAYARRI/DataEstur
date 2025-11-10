@@ -1,0 +1,15 @@
+{
+    "columns": [
+        "ID_FECHA",
+        "YM",
+        "PAIS_RESIDENCIA",
+        "CCAA_DESTINO",
+        "NUM_VIAJEROS",
+        "MOTIVO_VIAJE",
+        "TIPO_VIAJERO",
+        "ALOJAMIENTO",
+        "DURACION_VIAJE"
+    ],
+    "table_name": "FRONTUR",
+    "primary_metric": "NUM_VIAJEROS"
+}

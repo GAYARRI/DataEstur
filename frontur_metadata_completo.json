@@ -1,0 +1,848 @@
+{
+  "table_name": "FRONTUR",
+  "database_path": "C:\\DataEstur_Data\\dataestur.db",
+  "table_structure": {
+    "ID_FECHA": {
+      "position": 0,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "ENCUESTA": {
+      "position": 1,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "ID_CUESTIONARIO": {
+      "position": 2,
+      "type": "REAL",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "TIPO_VIAJERO": {
+      "position": 3,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "ID_VIA_ENTRADA": {
+      "position": 4,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "PAIS_RESIDENCIA": {
+      "position": 5,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "CCAA_DESTINO": {
+      "position": 6,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "ALOJAMIENTO": {
+      "position": 7,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "MOTIVO_VIAJE": {
+      "position": 8,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "PAQUETE_TURISTICO": {
+      "position": 9,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "DURACION_VIAJE": {
+      "position": 10,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "NUM_VIAJEROS": {
+      "position": 11,
+      "type": "REAL",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    },
+    "YM": {
+      "position": 12,
+      "type": "TEXT",
+      "not_null": false,
+      "default_value": null,
+      "primary_key": false
+    }
+  },
+  "columns": [
+    "ID_FECHA",
+    "ENCUESTA",
+    "ID_CUESTIONARIO",
+    "TIPO_VIAJERO",
+    "ID_VIA_ENTRADA",
+    "PAIS_RESIDENCIA",
+    "CCAA_DESTINO",
+    "ALOJAMIENTO",
+    "MOTIVO_VIAJE",
+    "PAQUETE_TURISTICO",
+    "DURACION_VIAJE",
+    "NUM_VIAJEROS",
+    "YM"
+  ],
+  "column_values": {
+    "PAIS_RESIDENCIA": {
+      "total_unique": 15,
+      "values": [
+        {
+          "PAIS_RESIDENCIA": "Francia",
+          "count": 1030210,
+          "total_turistas": 294081010.33
+        },
+        {
+          "PAIS_RESIDENCIA": "Reino Unido",
+          "count": 1215475,
+          "total_turistas": 160043338.3936
+        },
+        {
+          "PAIS_RESIDENCIA": "Alemania",
+          "count": 789520,
+          "total_turistas": 105898166.9647
+        },
+        {
+          "PAIS_RESIDENCIA": "Portugal",
+          "count": 261842,
+          "total_turistas": 94816384.0941
+        },
+        {
+          "PAIS_RESIDENCIA": "Resto de Europa",
+          "count": 439610,
+          "total_turistas": 76539795.4244
+        },
+        {
+          "PAIS_RESIDENCIA": "Italia",
+          "count": 508500,
+          "total_turistas": 50820760.3082
+        },
+        {
+          "PAIS_RESIDENCIA": "América (sin EEUU)",
+          "count": 356798,
+          "total_turistas": 47223152.9247
+        },
+        {
+          "PAIS_RESIDENCIA": "Resto del mundo",
+          "count": 356230,
+          "total_turistas": 46779080.9777
+        },
+        {
+          "PAIS_RESIDENCIA": "Paises Nordicos",
+          "count": 557006,
+          "total_turistas": 45650411.0127
+        },
+        {
+          "PAIS_RESIDENCIA": "Países Bajos",
+          "count": 340002,
+          "total_turistas": 37533402.7049
+        },
+        {
+          "PAIS_RESIDENCIA": "Estados Unidos de América",
+          "count": 267273,
+          "total_turistas": 33874633.8936
+        },
+        {
+          "PAIS_RESIDENCIA": "Bélgica",
+          "count": 292686,
+          "total_turistas": 26451935.5566
+        },
+        {
+          "PAIS_RESIDENCIA": "Suiza",
+          "count": 193268,
+          "total_turistas": 21009049.842
+        },
+        {
+          "PAIS_RESIDENCIA": "Irlanda",
+          "count": 219113,
+          "total_turistas": 19472684.2208
+        },
+        {
+          "PAIS_RESIDENCIA": "Rusia",
+          "count": 46099,
+          "total_turistas": 5611837.4789
+        }
+      ],
+      "top_values": [
+        {
+          "PAIS_RESIDENCIA": "Francia",
+          "count": 1030210,
+          "total_turistas": 294081010.33
+        },
+        {
+          "PAIS_RESIDENCIA": "Reino Unido",
+          "count": 1215475,
+          "total_turistas": 160043338.3936
+        },
+        {
+          "PAIS_RESIDENCIA": "Alemania",
+          "count": 789520,
+          "total_turistas": 105898166.9647
+        },
+        {
+          "PAIS_RESIDENCIA": "Portugal",
+          "count": 261842,
+          "total_turistas": 94816384.0941
+        },
+        {
+          "PAIS_RESIDENCIA": "Resto de Europa",
+          "count": 439610,
+          "total_turistas": 76539795.4244
+        },
+        {
+          "PAIS_RESIDENCIA": "Italia",
+          "count": 508500,
+          "total_turistas": 50820760.3082
+        },
+        {
+          "PAIS_RESIDENCIA": "América (sin EEUU)",
+          "count": 356798,
+          "total_turistas": 47223152.9247
+        },
+        {
+          "PAIS_RESIDENCIA": "Resto del mundo",
+          "count": 356230,
+          "total_turistas": 46779080.9777
+        },
+        {
+          "PAIS_RESIDENCIA": "Paises Nordicos",
+          "count": 557006,
+          "total_turistas": 45650411.0127
+        },
+        {
+          "PAIS_RESIDENCIA": "Países Bajos",
+          "count": 340002,
+          "total_turistas": 37533402.7049
+        }
+      ]
+    },
+    "CCAA_DESTINO": {
+      "total_unique": 20,
+      "values": [
+        {
+          "CCAA_DESTINO": "Cataluña",
+          "count": 1352570,
+          "total_turistas": 230681631.3278
+        },
+        {
+          "CCAA_DESTINO": "Canarias",
+          "count": 1013113,
+          "total_turistas": 124124871.7942
+        },
+        {
+          "CCAA_DESTINO": "Andalucía",
+          "count": 811355,
+          "total_turistas": 122448927.5682
+        },
+        {
+          "CCAA_DESTINO": "Baleares",
+          "count": 1133881,
+          "total_turistas": 122108318.6329
+        },
+        {
+          "CCAA_DESTINO": "Transito",
+          "count": 637639,
+          "total_turistas": 113219366.4682
+        },
+        {
+          "CCAA_DESTINO": "Com.Valenciana",
+          "count": 763431,
+          "total_turistas": 86307350.632
+        },
+        {
+          "CCAA_DESTINO": "País Vasco",
+          "count": 180550,
+          "total_turistas": 77779461.657
+        },
+        {
+          "CCAA_DESTINO": "Com.Madrid",
+          "count": 500829,
+          "total_turistas": 62181911.8184
+        },
+        {
+          "CCAA_DESTINO": "Galicia",
+          "count": 134490,
+          "total_turistas": 38969333.3796
+        },
+        {
+          "CCAA_DESTINO": "C.F.Navarra",
+          "count": 36239,
+          "total_turistas": 27154765.3851
+        },
+        {
+          "CCAA_DESTINO": "Castilla y León",
+          "count": 62334,
+          "total_turistas": 18548784.4798
+        },
+        {
+          "CCAA_DESTINO": "Extremadura",
+          "count": 49360,
+          "total_turistas": 16400093.363
+        },
+        {
+          "CCAA_DESTINO": "Región de Murcia",
+          "count": 85861,
+          "total_turistas": 8927446.5977
+        },
+        {
+          "CCAA_DESTINO": "Aragón",
+          "count": 34691,
+          "total_turistas": 6997291.3368
+        },
+        {
+          "CCAA_DESTINO": "Cantabria",
+          "count": 34235,
+          "total_turistas": 3619517.8769
+        },
+        {
+          "CCAA_DESTINO": "Principado de Asturias",
+          "count": 22051,
+          "total_turistas": 2776786.3897
+        },
+        {
+          "CCAA_DESTINO": "Castilla La Mancha",
+          "count": 13532,
+          "total_turistas": 2025804.6511
+        },
+        {
+          "CCAA_DESTINO": "La Rioja",
+          "count": 6899,
+          "total_turistas": 1253870.9814
+        },
+        {
+          "CCAA_DESTINO": "Ceuta",
+          "count": 509,
+          "total_turistas": 223893.187
+        },
+        {
+          "CCAA_DESTINO": "Melilla",
+          "count": 63,
+          "total_turistas": 56216.6001
+        }
+      ],
+      "top_values": [
+        {
+          "CCAA_DESTINO": "Cataluña",
+          "count": 1352570,
+          "total_turistas": 230681631.3278
+        },
+        {
+          "CCAA_DESTINO": "Canarias",
+          "count": 1013113,
+          "total_turistas": 124124871.7942
+        },
+        {
+          "CCAA_DESTINO": "Andalucía",
+          "count": 811355,
+          "total_turistas": 122448927.5682
+        },
+        {
+          "CCAA_DESTINO": "Baleares",
+          "count": 1133881,
+          "total_turistas": 122108318.6329
+        },
+        {
+          "CCAA_DESTINO": "Transito",
+          "count": 637639,
+          "total_turistas": 113219366.4682
+        },
+        {
+          "CCAA_DESTINO": "Com.Valenciana",
+          "count": 763431,
+          "total_turistas": 86307350.632
+        },
+        {
+          "CCAA_DESTINO": "País Vasco",
+          "count": 180550,
+          "total_turistas": 77779461.657
+        },
+        {
+          "CCAA_DESTINO": "Com.Madrid",
+          "count": 500829,
+          "total_turistas": 62181911.8184
+        },
+        {
+          "CCAA_DESTINO": "Galicia",
+          "count": 134490,
+          "total_turistas": 38969333.3796
+        },
+        {
+          "CCAA_DESTINO": "C.F.Navarra",
+          "count": 36239,
+          "total_turistas": 27154765.3851
+        }
+      ]
+    },
+    "MOTIVO_VIAJE": {
+      "total_unique": 5,
+      "values": [
+        {
+          "MOTIVO_VIAJE": "Ocio/vacaciones",
+          "count": 5519124,
+          "total_turistas": 757412835.4344
+        },
+        {
+          "MOTIVO_VIAJE": "Otros motivos",
+          "count": 531103,
+          "total_turistas": 184196805.8736
+        },
+        {
+          "MOTIVO_VIAJE": "Negocios",
+          "count": 406208,
+          "total_turistas": 60808635.3307
+        },
+        {
+          "MOTIVO_VIAJE": "Personal (salud, familia)",
+          "count": 336942,
+          "total_turistas": 53815269.1306
+        },
+        {
+          "MOTIVO_VIAJE": "Estudios",
+          "count": 80255,
+          "total_turistas": 9572098.3576
+        }
+      ],
+      "top_values": [
+        {
+          "MOTIVO_VIAJE": "Ocio/vacaciones",
+          "count": 5519124,
+          "total_turistas": 757412835.4344
+        },
+        {
+          "MOTIVO_VIAJE": "Otros motivos",
+          "count": 531103,
+          "total_turistas": 184196805.8736
+        },
+        {
+          "MOTIVO_VIAJE": "Negocios",
+          "count": 406208,
+          "total_turistas": 60808635.3307
+        },
+        {
+          "MOTIVO_VIAJE": "Personal (salud, familia)",
+          "count": 336942,
+          "total_turistas": 53815269.1306
+        },
+        {
+          "MOTIVO_VIAJE": "Estudios",
+          "count": 80255,
+          "total_turistas": 9572098.3576
+        }
+      ]
+    },
+    "ALOJAMIENTO": {
+      "total_unique": 10,
+      "values": [
+        {
+          "ALOJAMIENTO": "Hoteles y similares",
+          "count": 3365314,
+          "total_turistas": 458649665.9561
+        },
+        {
+          "ALOJAMIENTO": "No procede",
+          "count": 1279290,
+          "total_turistas": 361192452.4911
+        },
+        {
+          "ALOJAMIENTO": "Vivienda familiares/amigos",
+          "count": 802211,
+          "total_turistas": 81562554.3131
+        },
+        {
+          "ALOJAMIENTO": "Alojamiento alquiler",
+          "count": 753145,
+          "total_turistas": 79553586.3592
+        },
+        {
+          "ALOJAMIENTO": "Vivienda en propiedad",
+          "count": 405364,
+          "total_turistas": 41871892.3765
+        },
+        {
+          "ALOJAMIENTO": "Camping",
+          "count": 72270,
+          "total_turistas": 16551776.069
+        },
+        {
+          "ALOJAMIENTO": "Otro alojamiento no mercado",
+          "count": 66972,
+          "total_turistas": 10147394.5407
+        },
+        {
+          "ALOJAMIENTO": "Otro alojamiento mercado",
+          "count": 69207,
+          "total_turistas": 7721384.3613
+        },
+        {
+          "ALOJAMIENTO": "Crucero",
+          "count": 36035,
+          "total_turistas": 4942997.4409
+        },
+        {
+          "ALOJAMIENTO": "Casa rural",
+          "count": 23824,
+          "total_turistas": 3611940.219
+        }
+      ],
+      "top_values": [
+        {
+          "ALOJAMIENTO": "Hoteles y similares",
+          "count": 3365314,
+          "total_turistas": 458649665.9561
+        },
+        {
+          "ALOJAMIENTO": "No procede",
+          "count": 1279290,
+          "total_turistas": 361192452.4911
+        },
+        {
+          "ALOJAMIENTO": "Vivienda familiares/amigos",
+          "count": 802211,
+          "total_turistas": 81562554.3131
+        },
+        {
+          "ALOJAMIENTO": "Alojamiento alquiler",
+          "count": 753145,
+          "total_turistas": 79553586.3592
+        },
+        {
+          "ALOJAMIENTO": "Vivienda en propiedad",
+          "count": 405364,
+          "total_turistas": 41871892.3765
+        },
+        {
+          "ALOJAMIENTO": "Camping",
+          "count": 72270,
+          "total_turistas": 16551776.069
+        },
+        {
+          "ALOJAMIENTO": "Otro alojamiento no mercado",
+          "count": 66972,
+          "total_turistas": 10147394.5407
+        },
+        {
+          "ALOJAMIENTO": "Otro alojamiento mercado",
+          "count": 69207,
+          "total_turistas": 7721384.3613
+        },
+        {
+          "ALOJAMIENTO": "Crucero",
+          "count": 36035,
+          "total_turistas": 4942997.4409
+        },
+        {
+          "ALOJAMIENTO": "Casa rural",
+          "count": 23824,
+          "total_turistas": 3611940.219
+        }
+      ]
+    },
+    "DURACION_VIAJE": {
+      "total_unique": 6,
+      "values": [
+        {
+          "DURACION_VIAJE": "Ninguna noche",
+          "count": 1279290,
+          "total_turistas": 361192452.4911
+        },
+        {
+          "DURACION_VIAJE": "De 4 a 7 noches",
+          "count": 2703155,
+          "total_turistas": 334049949.7453
+        },
+        {
+          "DURACION_VIAJE": "De 8 a 15 noches",
+          "count": 1262636,
+          "total_turistas": 159846598.2965
+        },
+        {
+          "DURACION_VIAJE": "De 2 a 3 noches",
+          "count": 963522,
+          "total_turistas": 125995338.804
+        },
+        {
+          "DURACION_VIAJE": "Más de 15 noches",
+          "count": 460470,
+          "total_turistas": 48981070.1224
+        },
+        {
+          "DURACION_VIAJE": "1 noche",
+          "count": 204559,
+          "total_turistas": 35740234.6676
+        }
+      ],
+      "top_values": [
+        {
+          "DURACION_VIAJE": "Ninguna noche",
+          "count": 1279290,
+          "total_turistas": 361192452.4911
+        },
+        {
+          "DURACION_VIAJE": "De 4 a 7 noches",
+          "count": 2703155,
+          "total_turistas": 334049949.7453
+        },
+        {
+          "DURACION_VIAJE": "De 8 a 15 noches",
+          "count": 1262636,
+          "total_turistas": 159846598.2965
+        },
+        {
+          "DURACION_VIAJE": "De 2 a 3 noches",
+          "count": 963522,
+          "total_turistas": 125995338.804
+        },
+        {
+          "DURACION_VIAJE": "Más de 15 noches",
+          "count": 460470,
+          "total_turistas": 48981070.1224
+        },
+        {
+          "DURACION_VIAJE": "1 noche",
+          "count": 204559,
+          "total_turistas": 35740234.6676
+        }
+      ]
+    },
+    "TIPO_VIAJERO": {
+      "total_unique": 2,
+      "values": [
+        {
+          "TIPO_VIAJERO": "Turista no residente",
+          "count": 5594342,
+          "total_turistas": 704613191.6358
+        },
+        {
+          "TIPO_VIAJERO": "Excursionista No Residente",
+          "count": 1279290,
+          "total_turistas": 361192452.4911
+        }
+      ],
+      "top_values": [
+        {
+          "TIPO_VIAJERO": "Turista no residente",
+          "count": 5594342,
+          "total_turistas": 704613191.6358
+        },
+        {
+          "TIPO_VIAJERO": "Excursionista No Residente",
+          "count": 1279290,
+          "total_turistas": 361192452.4911
+        }
+      ]
+    },
+    "PAQUETE_TURISTICO": {
+      "total_unique": 3,
+      "values": [
+        {
+          "PAQUETE_TURISTICO": "No",
+          "count": 4802524,
+          "total_turistas": 796330040.9871
+        },
+        {
+          "PAQUETE_TURISTICO": "Sí",
+          "count": 1813669,
+          "total_turistas": 223080663.7045
+        },
+        {
+          "PAQUETE_TURISTICO": "No procede",
+          "count": 257439,
+          "total_turistas": 46394939.4353
+        }
+      ],
+      "top_values": [
+        {
+          "PAQUETE_TURISTICO": "No",
+          "count": 4802524,
+          "total_turistas": 796330040.9871
+        },
+        {
+          "PAQUETE_TURISTICO": "Sí",
+          "count": 1813669,
+          "total_turistas": 223080663.7045
+        },
+        {
+          "PAQUETE_TURISTICO": "No procede",
+          "count": 257439,
+          "total_turistas": 46394939.4353
+        }
+      ]
+    },
+    "ENCUESTA": {
+      "total_unique": 2,
+      "values": [
+        {
+          "ENCUESTA": "FRONTUR",
+          "count": 4885567,
+          "total_turistas": 715147731.8595
+        },
+        {
+          "ENCUESTA": "EGATUR",
+          "count": 1988065,
+          "total_turistas": 350657912.2674
+        }
+      ],
+      "top_values": [
+        {
+          "ENCUESTA": "FRONTUR",
+          "count": 4885567,
+          "total_turistas": 715147731.8595
+        },
+        {
+          "ENCUESTA": "EGATUR",
+          "count": 1988065,
+          "total_turistas": 350657912.2674
+        }
+      ]
+    }
+  },
+  "data_samples": {
+    "general": [
+      {
+        "ID_FECHA": "2015-10-01",
+        "ENCUESTA": "EGATUR",
+        "ID_CUESTIONARIO": "",
+        "TIPO_VIAJERO": "Excursionista No Residente",
+        "ID_VIA_ENTRADA": "Aeropuerto",
+        "PAIS_RESIDENCIA": "Italia",
+        "CCAA_DESTINO": "Cataluña",
+        "ALOJAMIENTO": "No procede",
+        "MOTIVO_VIAJE": "Negocios",
+        "PAQUETE_TURISTICO": "No procede",
+        "DURACION_VIAJE": "Ninguna noche",
+        "NUM_VIAJEROS": 95.0372,
+        "YM": "2015-10"
+      },
+      {
+        "ID_FECHA": "2015-10-01",
+        "ENCUESTA": "EGATUR",
+        "ID_CUESTIONARIO": null,
+        "TIPO_VIAJERO": "Excursionista No Residente",
+        "ID_VIA_ENTRADA": "Aeropuerto",
+        "PAIS_RESIDENCIA": "Reino Unido",
+        "CCAA_DESTINO": "Transito",
+        "ALOJAMIENTO": "No procede",
+        "MOTIVO_VIAJE": "Otros motivos",
+        "PAQUETE_TURISTICO": "No procede",
+        "DURACION_VIAJE": "Ninguna noche",
+        "NUM_VIAJEROS": 69.0328,
+        "YM": "2015-10"
+      },
+      {
+        "ID_FECHA": "2015-10-01",
+        "ENCUESTA": "EGATUR",
+        "ID_CUESTIONARIO": null,
+        "TIPO_VIAJERO": "Turista no residente",
+        "ID_VIA_ENTRADA": "Aeropuerto",
+        "PAIS_RESIDENCIA": "Italia",
+        "CCAA_DESTINO": "Com.Valenciana",
+        "ALOJAMIENTO": "Hoteles y similares",
+        "MOTIVO_VIAJE": "Ocio/vacaciones",
+        "PAQUETE_TURISTICO": "No",
+        "DURACION_VIAJE": "De 2 a 3 noches",
+        "NUM_VIAJEROS": 32.6438,
+        "YM": "2015-10"
+      },
+      {
+        "ID_FECHA": "2015-10-01",
+        "ENCUESTA": "EGATUR",
+        "ID_CUESTIONARIO": null,
+        "TIPO_VIAJERO": "Turista no residente",
+        "ID_VIA_ENTRADA": "Aeropuerto",
+        "PAIS_RESIDENCIA": "Italia",
+        "CCAA_DESTINO": "Com.Valenciana",
+        "ALOJAMIENTO": "Hoteles y similares",
+        "MOTIVO_VIAJE": "Ocio/vacaciones",
+        "PAQUETE_TURISTICO": "No",
+        "DURACION_VIAJE": "De 2 a 3 noches",
+        "NUM_VIAJEROS": 32.6438,
+        "YM": "2015-10"
+      },
+      {
+        "ID_FECHA": "2015-10-01",
+        "ENCUESTA": "EGATUR",
+        "ID_CUESTIONARIO": null,
+        "TIPO_VIAJERO": "Turista no residente",
+        "ID_VIA_ENTRADA": "Aeropuerto",
+        "PAIS_RESIDENCIA": "Italia",
+        "CCAA_DESTINO": "Com.Valenciana",
+        "ALOJAMIENTO": "Vivienda familiares/amigos",
+        "MOTIVO_VIAJE": "Ocio/vacaciones",
+        "PAQUETE_TURISTICO": "No",
+        "DURACION_VIAJE": "De 4 a 7 noches",
+        "NUM_VIAJEROS": 26.1608,
+        "YM": "2015-10"
+      }
+    ],
+    "year_2025": [],
+    "year_2024": [],
+    "year_2023": []
+  },
+  "statistics": {
+    "total_records": 6873632,
+    "date_range": {
+      "min_date": "2015-10-01",
+      "max_date": "2025-08-01"
+    },
+    "total_turistas": 1065805644.1269
+  },
+  "patterns": {
+    "paises_codigos": [
+      "Suiza",
+      "Rusia"
+    ],
+    "paises_nombres": [
+      "Francia",
+      "Reino Unido",
+      "Alemania",
+      "Portugal",
+      "Resto de Europa",
+      "Italia",
+      "América (sin EEUU)",
+      "Resto del mundo",
+      "Paises Nordicos",
+      "Países Bajos",
+      "Estados Unidos de América",
+      "Bélgica",
+      "Irlanda"
+    ],
+    "top_paises": [
+      "Francia",
+      "Reino Unido",
+      "Alemania",
+      "Portugal",
+      "Resto de Europa",
+      "Italia",
+      "América (sin EEUU)",
+      "Resto del mundo",
+      "Paises Nordicos",
+      "Países Bajos"
+    ]
+  }
+}

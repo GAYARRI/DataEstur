@@ -1,0 +1,1146 @@
+[
+    {
+        "cid": 0,
+        "dflt_value": null,
+        "name": "ID_FECHA",
+        "notnull": 0,
+        "pk": 0,
+        "type": "TEXT"
+    },
+    {
+        "cid": 1,
+        "dflt_value": null,
+        "name": "ID_VIAJE",
+        "notnull": 0,
+        "pk": 0,
+        "type": "INTEGER"
+    },
+    {
+        "cid": 2,
+        "dflt_value": null,
+        "name": "ID_NUM_VIAJE",
+        "notnull": 0,
+        "pk": 0,
+        "type": "INTEGER"
+    },
+    {
+        "cid": 3,
+        "dflt_value": null,
+        "name": "n_registros",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 4,
+        "dflt_value": null,
+        "name": "n_repeticiones_distintas",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 5,
+        "dflt_value": null,
+        "name": "ID_REP_VIAJE_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 6,
+        "dflt_value": null,
+        "name": "ID_REP_VIAJE_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 7,
+        "dflt_value": null,
+        "name": "CCAA_DESTINO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 8,
+        "dflt_value": null,
+        "name": "CCAA_DESTINO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 9,
+        "dflt_value": null,
+        "name": "PROVINCIA_DESTINO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 10,
+        "dflt_value": null,
+        "name": "PROVINCIA_DESTINO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 11,
+        "dflt_value": null,
+        "name": "PAIS_DESTINO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 12,
+        "dflt_value": null,
+        "name": "PAIS_DESTINO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 13,
+        "dflt_value": null,
+        "name": "MOTIVO_VIAJE_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 14,
+        "dflt_value": null,
+        "name": "MOTIVO_VIAJE_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 15,
+        "dflt_value": null,
+        "name": "TIPO_VIAJE_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 16,
+        "dflt_value": null,
+        "name": "TIPO_VIAJE_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 17,
+        "dflt_value": null,
+        "name": "TIPO_ALOJAMIENTO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 18,
+        "dflt_value": null,
+        "name": "TIPO_ALOJAMIENTO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 19,
+        "dflt_value": null,
+        "name": "TRANSPORTE_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 20,
+        "dflt_value": null,
+        "name": "TRANSPORTE_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 21,
+        "dflt_value": null,
+        "name": "RESERVA_ALOJAMIENTO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 22,
+        "dflt_value": null,
+        "name": "RESERVA_ALOJAMIENTO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 23,
+        "dflt_value": null,
+        "name": "SEXO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 24,
+        "dflt_value": null,
+        "name": "SEXO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 25,
+        "dflt_value": null,
+        "name": "CCAA_RESIDENCIA_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 26,
+        "dflt_value": null,
+        "name": "CCAA_RESIDENCIA_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 27,
+        "dflt_value": null,
+        "name": "TAMANYO_MUNICIPIO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 28,
+        "dflt_value": null,
+        "name": "TAMANYO_MUNICIPIO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 29,
+        "dflt_value": null,
+        "name": "NACIONALIDAD_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 30,
+        "dflt_value": null,
+        "name": "NACIONALIDAD_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 31,
+        "dflt_value": null,
+        "name": "ESTADO_CIVIL_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 32,
+        "dflt_value": null,
+        "name": "ESTADO_CIVIL_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 33,
+        "dflt_value": null,
+        "name": "NIVEL_ESTUDIOS_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 34,
+        "dflt_value": null,
+        "name": "NIVEL_ESTUDIOS_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 35,
+        "dflt_value": null,
+        "name": "REL_ACT_ECONOMICA_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 36,
+        "dflt_value": null,
+        "name": "REL_ACT_ECONOMICA_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 37,
+        "dflt_value": null,
+        "name": "TIPO_HOGAR_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 38,
+        "dflt_value": null,
+        "name": "TIPO_HOGAR_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 39,
+        "dflt_value": null,
+        "name": "INGRESOS_HOGAR_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 40,
+        "dflt_value": null,
+        "name": "INGRESOS_HOGAR_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 41,
+        "dflt_value": null,
+        "name": "IND_VIAJA_SOLO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 42,
+        "dflt_value": null,
+        "name": "IND_VIAJA_SOLO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 43,
+        "dflt_value": null,
+        "name": "IND_VIAJA_PAREJA_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 44,
+        "dflt_value": null,
+        "name": "IND_VIAJA_PAREJA_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 45,
+        "dflt_value": null,
+        "name": "IND_VIAJA_HIJOS_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 46,
+        "dflt_value": null,
+        "name": "IND_VIAJA_HIJOS_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 47,
+        "dflt_value": null,
+        "name": "IND_VIAJA_OTROS_FAM_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 48,
+        "dflt_value": null,
+        "name": "IND_VIAJA_OTROS_FAM_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 49,
+        "dflt_value": null,
+        "name": "IND_VIAJA_AMIGOS_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 50,
+        "dflt_value": null,
+        "name": "IND_VIAJA_AMIGOS_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 51,
+        "dflt_value": null,
+        "name": "IND_VIAJA_C_TRABAJO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 52,
+        "dflt_value": null,
+        "name": "IND_VIAJA_C_TRABAJO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 53,
+        "dflt_value": null,
+        "name": "IND_AERO_LOWCOST_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 54,
+        "dflt_value": null,
+        "name": "IND_AERO_LOWCOST_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 55,
+        "dflt_value": null,
+        "name": "IND_AVE_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 56,
+        "dflt_value": null,
+        "name": "IND_AVE_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 57,
+        "dflt_value": null,
+        "name": "IND_PAQUETE_TUR_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 58,
+        "dflt_value": null,
+        "name": "IND_PAQUETE_TUR_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 59,
+        "dflt_value": null,
+        "name": "IND_ETAPAS_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 60,
+        "dflt_value": null,
+        "name": "IND_ETAPAS_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 61,
+        "dflt_value": null,
+        "name": "IND_ACTI_GOLF_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 62,
+        "dflt_value": null,
+        "name": "IND_ACTI_GOLF_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 63,
+        "dflt_value": null,
+        "name": "IND_ACTI_DEPOR_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 64,
+        "dflt_value": null,
+        "name": "IND_ACTI_DEPOR_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 65,
+        "dflt_value": null,
+        "name": "IND_ACTI_NAVEGA_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 66,
+        "dflt_value": null,
+        "name": "IND_ACTI_NAVEGA_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 67,
+        "dflt_value": null,
+        "name": "IND_ACTI_OTROS_NAUTICOS_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 68,
+        "dflt_value": null,
+        "name": "IND_ACTI_OTROS_NAUTICOS_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 69,
+        "dflt_value": null,
+        "name": "IND_ACTI_CAZA_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 70,
+        "dflt_value": null,
+        "name": "IND_ACTI_CAZA_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 71,
+        "dflt_value": null,
+        "name": "IND_ACTI_SENDER_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 72,
+        "dflt_value": null,
+        "name": "IND_ACTI_SENDER_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 73,
+        "dflt_value": null,
+        "name": "IND_ACTI_AVENTURA_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 74,
+        "dflt_value": null,
+        "name": "IND_ACTI_AVENTURA_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 75,
+        "dflt_value": null,
+        "name": "IND_ACTI_CABALLO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 76,
+        "dflt_value": null,
+        "name": "IND_ACTI_CABALLO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 77,
+        "dflt_value": null,
+        "name": "IND_ACTI_OTROS_DEPORTES_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 78,
+        "dflt_value": null,
+        "name": "IND_ACTI_OTROS_DEPORTES_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 79,
+        "dflt_value": null,
+        "name": "IND_ACTI_ESPEC_DEPOR_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 80,
+        "dflt_value": null,
+        "name": "IND_ACTI_ESPEC_DEPOR_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 81,
+        "dflt_value": null,
+        "name": "IND_ACTI_VISITAS_CULTU_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 82,
+        "dflt_value": null,
+        "name": "IND_ACTI_VISITAS_CULTU_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 83,
+        "dflt_value": null,
+        "name": "IND_ACTI_ESPE_CULTU_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 84,
+        "dflt_value": null,
+        "name": "IND_ACTI_ESPE_CULTU_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 85,
+        "dflt_value": null,
+        "name": "IND_ACTI_OTRAS_CULTU_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 86,
+        "dflt_value": null,
+        "name": "IND_ACTI_OTRAS_CULTU_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 87,
+        "dflt_value": null,
+        "name": "IND_ACTI_CIUDADES_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 88,
+        "dflt_value": null,
+        "name": "IND_ACTI_CIUDADES_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 89,
+        "dflt_value": null,
+        "name": "IND_ACTI_RURALES_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 90,
+        "dflt_value": null,
+        "name": "IND_ACTI_RURALES_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 91,
+        "dflt_value": null,
+        "name": "IND_ACTI_TEMATICOS_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 92,
+        "dflt_value": null,
+        "name": "IND_ACTI_TEMATICOS_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 93,
+        "dflt_value": null,
+        "name": "IND_ACTI_RELAX_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 94,
+        "dflt_value": null,
+        "name": "IND_ACTI_RELAX_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 95,
+        "dflt_value": null,
+        "name": "IND_ACTI_JUEGOS_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 96,
+        "dflt_value": null,
+        "name": "IND_ACTI_JUEGOS_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 97,
+        "dflt_value": null,
+        "name": "IND_ACTI_GASTRO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 98,
+        "dflt_value": null,
+        "name": "IND_ACTI_GASTRO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 99,
+        "dflt_value": null,
+        "name": "IND_ACTI_DIVER_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 100,
+        "dflt_value": null,
+        "name": "IND_ACTI_DIVER_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 101,
+        "dflt_value": null,
+        "name": "IND_ACTI_RELIGION_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 102,
+        "dflt_value": null,
+        "name": "IND_ACTI_RELIGION_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 103,
+        "dflt_value": null,
+        "name": "IND_ACTI_CONGRESOS_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 104,
+        "dflt_value": null,
+        "name": "IND_ACTI_CONGRESOS_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 105,
+        "dflt_value": null,
+        "name": "IND_ACTI_AREAS_NATU_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 106,
+        "dflt_value": null,
+        "name": "IND_ACTI_AREAS_NATU_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 107,
+        "dflt_value": null,
+        "name": "IND_ACTI_PLAYA_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 108,
+        "dflt_value": null,
+        "name": "IND_ACTI_PLAYA_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 109,
+        "dflt_value": null,
+        "name": "IND_ACTI_FAMILIA_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 110,
+        "dflt_value": null,
+        "name": "IND_ACTI_FAMILIA_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 111,
+        "dflt_value": null,
+        "name": "IND_ACTI_COMPRAS_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 112,
+        "dflt_value": null,
+        "name": "IND_ACTI_COMPRAS_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 113,
+        "dflt_value": null,
+        "name": "NUM_PERNOCTACIONES_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 114,
+        "dflt_value": null,
+        "name": "NUM_PERNOCTACIONES_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 115,
+        "dflt_value": null,
+        "name": "NUM_GASTO_PAQUETE_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 116,
+        "dflt_value": null,
+        "name": "NUM_GASTO_PAQUETE_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 117,
+        "dflt_value": null,
+        "name": "NUM_GASTO_ALOJAMIENTO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 118,
+        "dflt_value": null,
+        "name": "NUM_GASTO_ALOJAMIENTO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 119,
+        "dflt_value": null,
+        "name": "NUM_GASTO_TRANSPORTE_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 120,
+        "dflt_value": null,
+        "name": "NUM_GASTO_TRANSPORTE_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 121,
+        "dflt_value": null,
+        "name": "NUM_GASTO_COMIDA_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 122,
+        "dflt_value": null,
+        "name": "NUM_GASTO_COMIDA_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 123,
+        "dflt_value": null,
+        "name": "NUM_GASTO_ACTIVIDADES_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 124,
+        "dflt_value": null,
+        "name": "NUM_GASTO_ACTIVIDADES_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 125,
+        "dflt_value": null,
+        "name": "NUM_GASTO_BIENES_DUR_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 126,
+        "dflt_value": null,
+        "name": "NUM_GASTO_BIENES_DUR_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 127,
+        "dflt_value": null,
+        "name": "NUM_GASTO_RESTO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 128,
+        "dflt_value": null,
+        "name": "NUM_GASTO_RESTO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 129,
+        "dflt_value": null,
+        "name": "NUM_GASTO_TOTAL_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 130,
+        "dflt_value": null,
+        "name": "NUM_GASTO_TOTAL_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 131,
+        "dflt_value": null,
+        "name": "GRADO_SATISFACCION_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 132,
+        "dflt_value": null,
+        "name": "GRADO_SATISFACCION_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 133,
+        "dflt_value": null,
+        "name": "FIDELIDAD_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 134,
+        "dflt_value": null,
+        "name": "FIDELIDAD_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 135,
+        "dflt_value": null,
+        "name": "EDAD_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 136,
+        "dflt_value": null,
+        "name": "EDAD_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 137,
+        "dflt_value": null,
+        "name": "FACTOR_ELEV_VIAJE_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 138,
+        "dflt_value": null,
+        "name": "FACTOR_ELEV_VIAJE_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 139,
+        "dflt_value": null,
+        "name": "FACTOR_ELEV_GASTO_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 140,
+        "dflt_value": null,
+        "name": "FACTOR_ELEV_GASTO_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 141,
+        "dflt_value": null,
+        "name": "YM_min",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    },
+    {
+        "cid": 142,
+        "dflt_value": null,
+        "name": "YM_max",
+        "notnull": 0,
+        "pk": 0,
+        "type": ""
+    }
+]

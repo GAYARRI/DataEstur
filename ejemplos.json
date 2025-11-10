@@ -1,0 +1,90 @@
+[
+  {
+    "question": "Total de turistas franceses en la Comunidad de Madrid en los últimos 5 años",
+    "sql": "SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','COMUNIDADDEMADRID','MADRID') GROUP BY CAST(SUBSTR(YM,1,4) AS INT) ORDER BY anio"
+  },
+  {
+    "question": "Evolución mensual de turistas franceses en Madrid durante los últimos 12 meses",
+    "sql": "SELECT YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','COMUNIDADDEMADRID','MADRID') GROUP BY YM ORDER BY YM DESC LIMIT 12"
+  },
+  {
+    "question": "Top 10 países emisores de turistas hacia España el último año",
+    "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT PAIS_RESIDENCIA, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y GROUP BY PAIS_RESIDENCIA ORDER BY total DESC LIMIT 10"
+  },
+  {
+    "question": "Distribución de turistas por comunidad autónoma destino en el año más reciente",
+    "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y GROUP BY CCAA_DESTINO ORDER BY total DESC"
+  },
+  {
+    "question": "Número de turistas alemanes en Canarias durante los últimos 3 años",
+    "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('DE','DEU','ALEMANIA','GERMANY') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('CANARIAS','ISLASCANARIAS') AND CAST(SUBSTR(YM,1,4) AS INT) BETWEEN y-2 AND y GROUP BY anio ORDER BY anio"
+  },
+  {
+    "question": "Evolución anual de turistas británicos en Cataluña",
+    "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('UK','GB','REINO UNIDO','UNITED KINGDOM') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('CATALUNYA','CATALUNA','CATALONIA') GROUP BY anio ORDER BY anio"
+  },
+  {
+    "question": "Top 5 comunidades autónomas con mayor número de turistas internacionales en 2024",
+    "sql": "SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2024 GROUP BY CCAA_DESTINO ORDER BY total DESC LIMIT 5"
+  },
+  {
+    "question": "Comparativa interanual de turistas franceses en Madrid (2023 vs 2024)",
+    "sql": "SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','COMUNIDADDEMADRID','MADRID') AND CAST(SUBSTR(YM,1,4) AS INT) IN (2023,2024) GROUP BY anio ORDER BY anio"
+  },
+  {
+    "question": "Total de turistas internacionales registrados en FRONTUR el último año disponible",
+    "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y"
+  },
+  {
+    "question": "Total anual de turistas por país de origen (top 5 países)",
+    "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT PAIS_RESIDENCIA, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y GROUP BY PAIS_RESIDENCIA ORDER BY total DESC LIMIT 5"
+  }
+  {
+    "question": "Evolución mensual de turistas británicos en Com. Madrid durante 2025",
+    "sql": "SELECT YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('UK','GB','REINO UNIDO','UNITED KINGDOM') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','MADRID','COMUNIDADDEMADRID') GROUP BY YM ORDER BY YM"
+  },
+  {
+    "question": "Comparación interanual 2025 vs 2024 de turistas franceses en Com. Madrid (acumulado hasta el último mes disponible)",
+    "sql": "WITH max_ym AS (SELECT MAX(YM) AS ym_max FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025), limite AS (SELECT SUBSTR(ym_max,6,2) AS mm FROM max_ym) SELECT anio, SUM(NUM_VIAJEROS) AS total FROM ( SELECT 2025 AS anio, NUM_VIAJEROS FROM FRONTUR, limite WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND SUBSTR(YM,6,2) <= limite.mm AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','MADRID','COMUNIDADDEMADRID') UNION ALL SELECT 2024 AS anio, NUM_VIAJEROS FROM FRONTUR, limite WHERE CAST(SUBSTR(YM,1,4) AS INT)=2024 AND SUBSTR(YM,6,2) <= limite.mm AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','MADRID','COMUNIDADDEMADRID') ) t GROUP BY anio ORDER BY anio"
+  },
+  {
+    "question": "Top 10 países emisores en 2025 (total España)",
+    "sql": "SELECT PAIS_RESIDENCIA AS pais, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 GROUP BY PAIS_RESIDENCIA ORDER BY total DESC LIMIT 10"
+  },
+  {
+    "question": "Top 5 CCAA por turistas internacionales en 2025",
+    "sql": "SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 GROUP BY CCAA_DESTINO ORDER BY total DESC LIMIT 5"
+  },
+  {
+    "question": "Crecimiento porcentual 2025 vs 2024 por CCAA (acumulado hasta el último mes disponible de 2025)",
+    "sql": "WITH max_ym AS (SELECT MAX(YM) AS ym_max FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025), limite AS (SELECT SUBSTR(ym_max,6,2) AS mm FROM max_ym), base AS ( SELECT CCAA_DESTINO, CASE WHEN CAST(SUBSTR(YM,1,4) AS INT)=2025 THEN '2025' ELSE '2024' END AS anio, NUM_VIAJEROS FROM FRONTUR, limite WHERE CAST(SUBSTR(YM,1,4) AS INT) IN (2024,2025) AND SUBSTR(YM,6,2) <= limite.mm ) , agg AS ( SELECT CCAA_DESTINO, anio, SUM(NUM_VIAJEROS) AS total FROM base GROUP BY CCAA_DESTINO, anio ) SELECT a.CCAA_DESTINO, a.total AS total_2024, b.total AS total_2025, CASE WHEN a.total=0 THEN NULL ELSE (1.0*b.total - 1.0*a.total) / (1.0*a.total) END AS yoy FROM (SELECT * FROM agg WHERE anio='2024') a JOIN (SELECT * FROM agg WHERE anio='2025') b USING (CCAA_DESTINO) ORDER BY yoy DESC"
+  },
+  {
+    "question": "Participación de Francia en el total de turistas de Com. Madrid en 2025",
+    "sql": "WITH tot AS (SELECT SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','MADRID','COMUNIDADDEMADRID')), fr AS (SELECT SUM(NUM_VIAJEROS) AS fr_total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','MADRID','COMUNIDADDEMADRID')) SELECT fr.fr_total AS viajeros_francia, tot.total AS viajeros_totales, CASE WHEN tot.total=0 THEN NULL ELSE 1.0*fr.fr_total/tot.total END AS cuota FROM fr, tot"
+  },
+  {
+    "question": "Evolución mensual 2025 vs 2024 de turistas alemanes en Cataluña",
+    "sql": "SELECT SUBSTR(YM,6,2) AS mes, CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT) IN (2024,2025) AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('DE','DEU','ALEMANIA','GERMANY') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('CATALUNYA','CATALUNA','CATALONIA') GROUP BY anio, mes ORDER BY mes, anio"
+  },
+  {
+    "question": "Turistas italianos en Andalucía en 2025 (mes a mes)",
+    "sql": "SELECT YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('IT','ITA','ITALIA','ITALY') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('ANDALUCIA') GROUP BY YM ORDER BY YM"
+  },
+  {
+    "question": "Total acumulado 2025 (YTD) frente al mismo periodo de 2024 (total España)",
+    "sql": "WITH max_ym AS (SELECT MAX(YM) AS ym_max FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025), limite AS (SELECT SUBSTR(ym_max,6,2) AS mm FROM max_ym) SELECT anio, SUM(NUM_VIAJEROS) AS total FROM ( SELECT 2025 AS anio, NUM_VIAJEROS FROM FRONTUR, limite WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND SUBSTR(YM,6,2) <= limite.mm UNION ALL SELECT 2024 AS anio, NUM_VIAJEROS FROM FRONTUR, limite WHERE CAST(SUBSTR(YM,1,4) AS INT)=2024 AND SUBSTR(YM,6,2) <= limite.mm ) t GROUP BY anio ORDER BY anio"
+  },
+  {
+    "question": "Top 5 países con mayor crecimiento de turistas en 2025 vs 2024 (total España, acumulado al último mes disponible de 2025)",
+    "sql": "WITH max_ym AS (SELECT MAX(YM) AS ym_max FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025), limite AS (SELECT SUBSTR(ym_max,6,2) AS mm FROM max_ym), base AS ( SELECT PAIS_RESIDENCIA, CASE WHEN CAST(SUBSTR(YM,1,4) AS INT)=2025 THEN '2025' ELSE '2024' END AS anio, NUM_VIAJEROS FROM FRONTUR, limite WHERE CAST(SUBSTR(YM,1,4) AS INT) IN (2024,2025) AND SUBSTR(YM,6,2) <= limite.mm ), agg AS ( SELECT PAIS_RESIDENCIA, anio, SUM(NUM_VIAJEROS) AS total FROM base GROUP BY PAIS_RESIDENCIA, anio ) SELECT b.PAIS_RESIDENCIA, a.total AS total_2024, b.total AS total_2025, (1.0*b.total - 1.0*a.total) AS crecimiento_abs, CASE WHEN a.total=0 THEN NULL ELSE (1.0*b.total - 1.0*a.total)/(1.0*a.total) END AS crecimiento_pct FROM (SELECT * FROM agg WHERE anio='2024') a JOIN (SELECT * FROM agg WHERE anio='2025') b USING (PAIS_RESIDENCIA) ORDER BY crecimiento_pct DESC NULLS LAST LIMIT 5"
+  },
+  {
+    "question": "Turistas de Estados Unidos en Com. Madrid 2025 (acumulado y detalle mensual)",
+    "sql": "SELECT 'TOTAL_2025' AS tipo, NULL AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('US','USA','ESTADOS UNIDOS','UNITED STATES','UNITED STATES OF AMERICA') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','MADRID','COMUNIDADDEMADRID') UNION ALL SELECT 'MENSUAL_2025' AS tipo, YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('US','USA','ESTADOS UNIDOS','UNITED STATES','UNITED STATES OF AMERICA') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','MADRID','COMUNIDADDEMADRID') GROUP BY YM ORDER BY tipo, mes"
+  },
+  {
+    "question": "Comparación mensual 2025 vs 2024 de turistas franceses en Com. Madrid (misma columna por mes)",
+    "sql": "WITH meses AS (SELECT DISTINCT SUBSTR(YM,6,2) AS mes FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025), fr_2025 AS (SELECT SUBSTR(YM,6,2) AS mes, SUM(NUM_VIAJEROS) AS v2025 FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','MADRID','COMUNIDADDEMADRID') GROUP BY mes), fr_2024 AS (SELECT SUBSTR(YM,6,2) AS mes, SUM(NUM_VIAJEROS) AS v2024 FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2024 AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','MADRID','COMUNIDADDEMADRID') GROUP BY mes) SELECT m.mes, fr_2024.v2024, fr_2025.v2025 FROM meses m LEFT JOIN fr_2024 ON fr_2024.mes=m.mes LEFT JOIN fr_2025 ON fr_2025.mes=m.mes ORDER BY m.mes"
+  }
+]

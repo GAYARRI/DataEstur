@@ -1,0 +1,125 @@
+class Visualizer:
+    def __init__(self, logger):
+        self.logger = logger
+        # Configurar estilo de gráficos
+        plt.style.use('default')
+        sns.set_palette("husl")
+    
+    def create_chart(self, df: pd.DataFrame, chart_type: str, title: str) -> None:
+        """Crear visualización basada en el tipo de gráfico"""
+        if df.empty:
+            self.logger.warning("DataFrame vacío, no se puede crear gráfico")
+            return
+        
+        try:
+            fig, ax = plt.subplots(figsize=(12, 6))
+            
+            if chart_type == 'bar' and len(df) > 1:
+                self._create_bar_chart(df, ax, title)
+            elif chart_type == 'line' and len(df) > 1:
+                self._create_line_chart(df, ax, title)
+            elif chart_type == 'pie' and len(df) <= 10:
+                self._create_pie_chart(df, ax, title)
+            else:
+                self._create_table_display(df, ax, title)
+            
+            plt.tight_layout()
+            plt.show()
+            
+        except Exception as e:
+            self.logger.error(f"Error creando gráfico: {e}")
+            self._create_table_display(df, plt.gca(), f"{title} (fallback a tabla)")
+    
+
+    def create_chart(self, df: pd.DataFrame, chart_type: str, title: str) -> bool:
+
+        """Crear gráfico - VERSIÓN CORREGIDA para manejar errores correctamente"""
+
+        if df.empty:
+            self.logger.warning("DataFrame vacío, no se puede crear gráfico")
+            return False
+    
+        try:
+            # RESET INDEX CRÍTICO - Esto evita el error de indexación ambiguo
+            df_clean = df.reset_index(drop=True).copy()
+        
+            # Asegurar que las columnas numéricas sean del tipo correcto
+            for col in df_clean.select_dtypes(include=['number']).columns:
+                df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
+        
+            fig, ax = plt.subplots(figsize=(12, 6))
+        
+            if chart_type == 'bar' and len(df_clean) > 1:
+                success = self._create_bar_chart(df_clean, ax, title)
+            elif chart_type == 'line' and len(df_clean) > 1:
+                success = self._create_line_chart(df_clean, ax, title)
+            elif chart_type == 'pie' and len(df_clean) <= 10:
+                success = self._create_pie_chart(df_clean, ax, title)
+            else:
+                success = self._create_table_display(df_clean, ax, title)
+        
+            if success:
+                plt.tight_layout()
+                plt.show()
+                return True
+            else:
+                plt.close(fig)
+                return False
+            
+        except Exception as e:
+            self.logger.error(f"Error creando gráfico: {e}")
+            # Fallback a tabla - USAR df EN LUGAR DE df_clean
+            try:
+                fig, ax = plt.subplots(figsize=(12, 6))
+                # Usar el DataFrame original (df) en lugar de df_clean que puede no estar definido
+                self._create_table_display(df.reset_index(drop=True), ax, f"{title} (fallback a tabla)")
+                plt.tight_layout()
+                plt.show()
+                return True
+            except Exception as fallback_error:
+                self.logger.error(f"Error en fallback a tabla: {fallback_error}")
+                return False    
+       
+    
+    def _create_line_chart(self, df: pd.DataFrame, ax, title: str):
+        """Crear gráfico de líneas para series temporales"""
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        if 'mes' in df.columns or 'anio' in df.columns:
+            time_col = 'mes' if 'mes' in df.columns else 'anio'
+            value_col = numeric_cols[0]
+            
+            df_plot = df.sort_values(time_col)
+            sns.lineplot(data=df_plot, x=time_col, y=value_col, ax=ax, marker='o')
+            ax.set_title(title, fontsize=14, fontweight='bold')
+            ax.set_ylabel(value_col)
+    
+    def _create_pie_chart(self, df: pd.DataFrame, ax, title: str):
+        """Crear gráfico de torta"""
+        numeric_cols = df.select_dtypes(include=['number']).columns
+        categorical_cols = df.select_dtypes(exclude=['number']).columns
+        
+        if len(numeric_cols) > 0 and len(categorical_cols) > 0:
+            label_col = categorical_cols[0]
+            value_col = numeric_cols[0]
+            
+            # Tomar solo los primeros 8 elementos para legibilidad
+            df_plot = df.head(8)
+            
+            ax.pie(df_plot[value_col], labels=df_plot[label_col], autopct='%1.1f%%', startangle=90)
+            ax.set_title(title, fontsize=14, fontweight='bold')
+    
+    def _create_table_display(self, df: pd.DataFrame, ax, title: str):
+        """Mostrar datos en formato tabla"""
+        ax.axis('tight')
+        ax.axis('off')
+        
+        table = ax.table(
+            cellText=df.values,
+            colLabels=df.columns,
+            cellLoc='center',
+            loc='center'
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1, 1.5)
+        ax.set_title(title, fontsize=14, fontweight='bold')

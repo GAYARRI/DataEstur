@@ -1,0 +1,40 @@
+﻿# Database files
+*.db
+*.sqlite
+*.sqlite3
+*.mdb
+*.accdb
+
+# Large data files
+*.csv
+*.xlsx
+*.xls
+*.pdf
+*.zip
+*.rar
+*.7z
+
+# Media files
+*.mp4
+*.avi
+*.mov
+*.mp3
+*.wav
+*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Logs and temporary files
+*.log
+logs/
+temp/
+tmp/
+
+# Environment and system
+.env
+.venv
+__pycache__/
+.DS_Store
+Thumbs.db
+dataestur.db
