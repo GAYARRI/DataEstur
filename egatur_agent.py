@@ -45,6 +45,7 @@ except Exception as e:
     sys.exit(f"Error cargando archivos de configuración: {e}")
 
 # --- Prompt mejorado ---
+
 SYS_PROMPT = """Eres un asistente experto en SQL para SQLite que trabaja sobre la tabla SURVEY_TABLE de EGATUR.
     Devuelves EXCLUSIVAMENTE una consulta SQL válida, sin explicaciones ni formato de código.
 
@@ -61,20 +62,23 @@ SYS_PROMPT = """Eres un asistente experto en SQL para SQLite que trabaja sobre l
     * SUM(CAMPO) AS CAMPO_total
     * COUNT(*) AS count
     * CASE ... END AS nombre_descriptivo
-    - Para porcentajes de indicadores 0/1, usa AVG(campo) * 100 AS nombre_pct.
+    - Para porcentajes de indicadores o ratios, puedes usar expresiones como:
+    * AVG(campo) * 100 AS campo_pct
+    * 100.0 * SUM(num) / NULLIF(SUM(den), 0) AS ratio_pct
     - No inventes nombres de columnas.
 
     Convención para facilitar la generación de gráficos:
     - Siempre que la consulta sea adecuada para graficar, debe devolver:
-        - Exactly UNA dimensión principal (por ejemplo YM_min, CCAA_DESTINO_min, NACIONALIDAD_min, EDAD_min, etc.)
-        - Exactly UNA métrica principal (un gasto total, un gasto medio, un conteo, etc.)
+        - EXACTAMENTE UNA dimensión principal (por ejemplo YM_min, CCAA_DESTINO_min, PROVINCIA_DESTINO_min,
+        CCAA_RESIDENCIA_min, TIPO_ALOJAMIENTO_min, MOTIVO_VIAJE_min, etc.).
+        - EXACTAMENTE UNA métrica principal (gasto total, gasto medio, conteo, porcentaje, etc.).
     - La dimensión principal debe tener SIEMPRE el alias:
         dim_value
     - La métrica principal debe tener SIEMPRE el alias:
         metric_value
 
     Ejemplos de alias esperados:
-    - SELECT YM_min AS dim_value,
+    - SELECT SUBSTR(YM_min, 1, 4) AS dim_value,
             SUM(NUM_GASTO_TOTAL_min) AS metric_value
     FROM SURVEY_TABLE
     ...
@@ -82,68 +86,101 @@ SYS_PROMPT = """Eres un asistente experto en SQL para SQLite que trabaja sobre l
             AVG(NUM_GASTO_TOTAL_min) AS metric_value
     FROM SURVEY_TABLE
     ...
-    - SELECT SUBSTR(YM_min, 1, 4) AS dim_value,
+    - SELECT CASE
+            WHEN NACIONALIDAD_min = 'España' THEN 'Solo española'
+            WHEN REGION_ORIGEN_min = 'Europa' THEN 'Española y europea'
+            ELSE 'Otros orígenes'
+            END AS dim_value,
             SUM(NUM_GASTO_TOTAL_min) AS metric_value
     FROM SURVEY_TABLE
     ...
 
     Reglas semánticas específicas de EGATUR (según el esquema):
 
-    - Tiempo:
-    * La variable temporal es YM_min (año-mes).
-    * Si el usuario pregunta por años, puedes usar SUBSTR(YM_min, 1, 4) para obtener el año.
-        Ejemplo: SUBSTR(YM_min, 1, 4) AS dim_value.
+    1) Dimensión temporal:
+    - La variable temporal básica es YM_min (año-mes).
+    - Si el usuario pregunta por años, puedes usar SUBSTR(YM_min, 1, 4) para obtener el año:
+        SUBSTR(YM_min, 1, 4) AS dim_value
+    - Si el usuario pregunta por meses dentro de un año concreto, puedes agrupar directamente por YM_min.
 
-    - Dimensiones geográficas y de segmento:
-    * Comunidades autónomas de destino: CCAA_DESTINO_min.
-    * País de destino: PAIS_DESTINO_min.
-    * Nacionalidad de los turistas: NACIONALIDAD_min.
-    * CCAA de residencia: CCAA_RESIDENCIA_min.
-    * Edad: EDAD_min.
-    * Motivo del viaje: MOTIVO_VIAJE_min.
-    * Tipo de viaje: TIPO_VIAJE_min.
-    * Tipo de alojamiento: TIPO_ALOJAMIENTO_min.
+    2) Dimensiones de DESTINO (prioritarias cuando se habla de “gasto por región / destino”):
+    - Comunidad autónoma de destino: CCAA_DESTINO_min
+    - Provincia de destino: PROVINCIA_DESTINO_min
+    - País de destino: PAIS_DESTINO_min
+    - Región de destino: REGION_DESTINO_min (si existe en el esquema)
 
-    - Variables de gasto:
-    * Gastos parciales:
-        - NUM_GASTO_ALOJAMIENTO_min
-        - NUM_GASTO_TRANSPORTE_min
-        - NUM_GASTO_COMIDA_min
-        - NUM_GASTO_ACTIVIDADES_min
-        - NUM_GASTO_BIENES_DUR_min
-        - NUM_GASTO_RESTO_min
-        - NUM_GASTO_PAQUETE_min
-    * Gasto total del viaje:
-        - NUM_GASTO_TOTAL_min  (esta suele ser la métrica principal de gasto)
+    Ejemplos:
+    - "Distribución del gasto por comunidad autónoma de destino" →
+        CCAA_DESTINO_min AS dim_value
+    - "Distribución del gasto por provincia de destino" →
+        PROVINCIA_DESTINO_min AS dim_value
+    - "España vs resto de Europa como destino" →
+        usar un CASE sobre PAIS_DESTINO_min y/o REGION_DESTINO_min, por ejemplo:
+        CASE
+        WHEN PAIS_DESTINO_min = 'España' THEN 'España'
+        WHEN REGION_DESTINO_min = 'Europa' THEN 'Resto de Europa'
+        ELSE 'Otros destinos'
+        END AS dim_value
 
-    - Reglas para "gasto":
-    * "gasto total", "importe total", "gasto acumulado" → usa SUM(NUM_GASTO_TOTAL_min) AS metric_value.
-    * "gasto medio" / "gasto medio por persona" / "gasto medio por viaje" → usa AVG(NUM_GASTO_TOTAL_min) AS metric_value.
-    * "gasto en alojamiento" → usa NUM_GASTO_ALOJAMIENTO_min.
-    * "gasto en transporte" → usa NUM_GASTO_TRANSPORTE_min.
-    * "gasto en comida" → usa NUM_GASTO_COMIDA_min.
-    * "gasto en actividades" → usa NUM_GASTO_ACTIVIDADES_min.
+    3) Dimensiones de ORIGEN / RESIDENCIA:
+    - Comunidad autónoma de residencia: CCAA_RESIDENCIA_min
+    - Nacionalidad y región de origen: NACIONALIDAD_min, REGION_ORIGEN_min
 
-    - Reglas para recuentos:
-    * Si el usuario habla de "número de viajes", "número de turistas", "cuántos", etc.,
-        y la consulta pertenece a EGATUR, puedes usar:
+    Cuando el usuario pida agregación de nacionalidad en categorías (por ejemplo “solo española / española y europea / otros”),
+    usa la siguiente regla:
+
+        CASE
+        WHEN NACIONALIDAD_min = 'España' THEN 'Solo española'
+        WHEN REGION_ORIGEN_min = 'Europa' THEN 'Española y europea'
+        ELSE 'Otros orígenes'
+        END AS dim_value
+
+    Ejemplos:
+    - "Gasto total según nacionalidad agrupada en solo española, española y europea y otros orígenes" →
+        usar el CASE anterior como dim_value y SUM(NUM_GASTO_TOTAL_min) como metric_value.
+    - "Distribución del gasto por comunidad de residencia" →
+        CCAA_RESIDENCIA_min AS dim_value
+
+    4) Variables de gasto (métricas principales):
+    - Gastos parciales típicos:
+        NUM_GASTO_ALOJAMIENTO_min
+        NUM_GASTO_TRANSPORTE_min
+        NUM_GASTO_COMIDA_min
+        NUM_GASTO_ACTIVIDADES_min
+        NUM_GASTO_PAQUETE_min
+        NUM_GASTO_RESTO_min
+    - Gasto total del viaje:
+        NUM_GASTO_TOTAL_min     (esta suele ser la métrica principal de gasto)
+
+    Reglas:
+    - “gasto total”, “importe total”, “gasto acumulado” → usa SUM(NUM_GASTO_TOTAL_min) AS metric_value.
+    - “gasto medio”, “gasto medio por viaje”, “gasto medio por persona” → usa AVG(NUM_GASTO_TOTAL_min) AS metric_value.
+    - “gasto en alojamiento” → usa NUM_GASTO_ALOJAMIENTO_min.
+    - “gasto en transporte” → usa NUM_GASTO_TRANSPORTE_min.
+    - “gasto en comida” → usa NUM_GASTO_COMIDA_min.
+    - “gasto en actividades” → usa NUM_GASTO_ACTIVIDADES_min.
+
+    5) Recuento de viajes / turistas (cuando se habla de “número de viajes” en EGATUR):
+    - Si el usuario habla de “número de viajes”, “cuántos viajes”, “número de registros” dentro del contexto de EGATUR,
+    puedes usar:
         COUNT(*) AS metric_value
-        o, si existe una variable de conteo específica (por ejemplo n_registros), puedes usar
-        SUM(n_registros) AS metric_value
-        según corresponda al significado.
+    o, si existe una variable específica de conteo, SUM(esa_variable).
 
-    - Agrupaciones:
-    * Si el usuario pide "por comunidad autónoma", "por país", "por edad", "por año", etc.,
-        debes usar GROUP BY sobre esas dimensiones.
-    * Si hay varias dimensiones en la pregunta (por ejemplo año y CCAA), agrupa por todas,
-        pero elige UNA de ellas como dim_value (la más importante para el gráfico) y deja las demás
-        como columnas adicionales no aliasadas con dim_value.
+    6) Agrupaciones:
+    - Si el usuario pide "por comunidad autónoma", "por provincia", "por país", "por año", "por motivo del viaje", etc.,
+    debes usar GROUP BY sobre esas dimensiones.
+    - Si hay varias dimensiones en la pregunta (por ejemplo año y CCAA), agrupa por todas, pero elige UNA como dim_value
+    (la más importante para el gráfico) y deja las demás como columnas adicionales no aliasadas con dim_value.
+
+    7) Filtros temporales:
+    - "en 2023" → SUBSTR(YM_min, 1, 4) = '2023'
+    - "entre 2020 y 2023" → SUBSTR(YM_min, 1, 4) BETWEEN '2020' AND '2023'
 
     Salida:
     - Tu salida DEBE SER únicamente la sentencia SQL final, sin comentarios, sin texto extra,
     sin bloques ```sql``` ni explicaciones adicionales.
     """
-
+   
 
 
 # --- Hints heurísticos ---
@@ -254,6 +291,37 @@ plt.rcParams.update({
     "legend.fontsize": 11,
     "font.size": 12,
 })
+def _is_time_like(series: pd.Series) -> bool:
+    """
+    Intenta decidir si dim_value representa tiempo (año, año-mes, etc.).
+    - Numérico con 4 dígitos (tipo 2020, 2021, ...).
+    - Texto con patrón 'YYYY', 'YYYY-MM', 'YYYYMM', etc.
+    """
+    if series.empty:
+        return False
+
+    # Si ya es numérico
+    if pd.api.types.is_numeric_dtype(series):
+        # ¿Parece un año de 4 dígitos?
+        sample = series.dropna().astype(str).head(5)
+        if all(len(s) == 4 and s.isdigit() for s in sample):
+            return True
+        return False
+
+    # Si es texto: probar patrones típicos
+    sample = series.dropna().astype(str).head(5)
+    for s in sample:
+        s = s.strip()
+        # YYYY
+        if len(s) == 4 and s.isdigit():
+            return True
+        # YYYYMM
+        if len(s) == 6 and s.isdigit():
+            return True
+        # YYYY-MM, YYYY/MM
+        if len(s) == 7 and (s[4] in "-/") and s[:4].isdigit():
+            return True
+    return False
 
 TIME_COL_PATTERNS = ["ANIO", "AÑO", "ANO", "YEAR", "PERIODO", "MES", "MONTH"]
 DIM_COL_HINTS = ["PAIS", "PAÍS", "CCAA", "COMUNIDAD", "MOTIVO", "TIPO", "REGION", "SEGMENTO"]
@@ -289,54 +357,76 @@ def pick_plot(df: pd.DataFrame) -> Tuple[str, str]:
         return ("hist", f"Histograma de {num_cols[0]}")
     return ("none", "No hay columnas numéricas o categóricas adecuadas")
 
-def plot_df(df: pd.DataFrame, out_path: Optional[str] = None, show=True, title: Optional[str] = None):
-
+def plot_df(df: pd.DataFrame, out_path: Optional[str] = None, show: bool = True, title: Optional[str] = None):
     """
-    Genera un gráfico a partir de un DataFrame.
-    Prioriza la convención dim_value / metric_value.
-    Si no están presentes, usa la heurística pick_plot().
+    Genera un gráfico a partir de un DataFrame de resultados EGATUR.
+
+    Prioridad:
+    1) Si existen las columnas 'metric_value' y/o 'dim_value', se utilizan directamente.
+       - Si dim_value es temporal (año / año-mes) → línea temporal.
+       - Si dim_value es categórica → barras ordenadas.
+    2) Si no existen, se intenta un gráfico sencillo de respaldo.
     """
     if df is None or df.empty:
         print("⚠️  No hay datos para graficar.")
         return
 
-    # 1) Camino preferente: el SQL ha seguido la convención dim_value / metric_value
-    if "metric_value" in df.columns:
+    # 1) Camino principal: dim_value / metric_value
+    has_metric = "metric_value" in df.columns
+    has_dim = "dim_value" in df.columns
+
+    if has_metric:
         y_col = "metric_value"
 
-        # Determinar dimensión X
-        if "dim_value" in df.columns:
-            x_vals = df["dim_value"]
+        # Determinar eje X
+        if has_dim:
+            x_series = df["dim_value"]
             x_label = "dim_value"
         else:
-            # Si no hay dim_value, usamos índice
-            x_vals = df.index
-            x_label = "index"
+            x_series = pd.Series(df.index, index=df.index)
+            x_label = "Índice"
 
         fig, ax = plt.subplots(figsize=(12, 7))
         if title:
             plt.title(title, fontsize=16, fontweight="bold", pad=20)
 
-        # Elegimos tipo de gráfico simple: línea si x es numérico, barras si no
-        if pd.api.types.is_numeric_dtype(x_vals):
-            # Ordenar por X si tiene sentido
+        # ¿Es temporal o categórico?
+        if _is_time_like(x_series):
+            # Ordenar por tiempo
             df_plot = df.copy()
-            df_plot["_x_"] = x_vals
-            df_plot.sort_values("_x_", inplace=True)
-            ax.plot(df_plot["_x_"], df_plot[y_col], marker="o", linewidth=2)
+            df_plot["_x_"] = x_series
+            # Intentar convertir a algo ordenable
+            try:
+                df_plot["_x_parsed"] = pd.to_datetime(df_plot["_x_"], errors="coerce")
+                if df_plot["_x_parsed"].notna().any():
+                    df_plot = df_plot.sort_values("_x_parsed")
+                    x_vals = df_plot["_x_parsed"]
+                else:
+                    df_plot = df_plot.sort_values("_x_")
+                    x_vals = df_plot["_x_"]
+            except Exception:
+                df_plot = df.copy()
+                df_plot["_x_"] = x_series
+                df_plot = df_plot.sort_values("_x_")
+                x_vals = df_plot["_x_"]
+
+            ax.plot(x_vals, df_plot[y_col], marker="o", linewidth=2)
             ax.set_xlabel(x_label, fontsize=13)
             ax.set_ylabel(y_col, fontsize=13)
             ax.grid(True, alpha=0.3)
+
         else:
+            # Tratar dim_value como categoría → barras
             df_plot = df.copy()
             if len(df_plot) > 30:
                 df_plot = df_plot.head(30)
-                print(f"   📉 Mostrando solo las primeras 30 filas de {len(df)}")
+                print(f"📉 Mostrando solo las primeras 30 filas de {len(df)}")
+
+            x_vals = x_series.loc[df_plot.index]
             indices = range(len(df_plot))
             ax.bar(indices, df_plot[y_col])
             ax.set_xticks(indices)
-            ax.set_xticklabels([str(v) for v in df_plot["dim_value"]] if "dim_value" in df_plot.columns else [str(i) for i in indices],
-                               rotation=45, ha="right")
+            ax.set_xticklabels([str(v) for v in x_vals], rotation=45, ha="right")
             ax.set_xlabel(x_label, fontsize=13)
             ax.set_ylabel(y_col, fontsize=13)
 
@@ -346,63 +436,44 @@ def plot_df(df: pd.DataFrame, out_path: Optional[str] = None, show=True, title: 
         if show:
             plt.show()
         plt.close()
-        return  # Muy importante: no seguimos con la heurística
+        return  # No continuamos con la heurística
 
-    # 2) Camino de respaldo: heurística clásica basada en pick_plot
-    kind, desc = pick_plot(df)
-    print(f"📊 {desc}")
-    if kind == "none":
-        print("No se puede graficar con los datos disponibles.")
-        return
-
-    fig, ax = plt.subplots(figsize=(12, 7))
-    if title:
-        plt.title(title, fontsize=16, fontweight='bold', pad=20)
+    # 2) Camino de respaldo: no hay metric_value → algo muy básico
+    print("ℹ️  No se encontraron columnas 'metric_value'; usando heurística simple de respaldo.")
 
     num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
-    dim_col = detect_dim_column(df)
-    time_col = detect_time_column(df)
+    if not num_cols:
+        print("⚠️  No hay columnas numéricas para graficar.")
+        return
 
-    if kind == "line_time" and time_col and num_cols:
-        y = num_cols[0]
-        df_plot = df.sort_values(time_col).copy()
-        ax.plot(df_plot[time_col], df_plot[y], marker='o', linewidth=2)
-        ax.set_xlabel(time_col, fontsize=13)
-        ax.set_ylabel(y, fontsize=13)
-        ax.grid(True, alpha=0.3)
+    y_col = num_cols[0]
+    fig, ax = plt.subplots(figsize=(12, 7))
+    if title:
+        plt.title(title, fontsize=16, fontweight="bold", pad=20)
 
-    elif kind == "bar_dim" and dim_col and num_cols:
-        y = num_cols[0]
-        df_plot = df.copy()
-        if len(df_plot) > 30:
-            df_plot = df_plot.head(30)
-            print(f"   📉 Mostrando solo primeras 30 filas de {len(df)} totales")
-        sns.barplot(data=df_plot, x=dim_col, y=y, ax=ax)
-        ax.set_xlabel(dim_col, fontsize=13)
-        ax.set_ylabel(y, fontsize=13)
-        plt.xticks(rotation=45, ha='right')
-
-    elif kind == "line":
-        df_plot = df.copy()
-        for col in num_cols:
-            ax.plot(df_plot.index, df_plot[col], marker='o', linewidth=2, label=col)
+    if len(df) <= 30:
+        # Barras por índice
+        indices = range(len(df))
+        ax.bar(indices, df[y_col])
+        ax.set_xticks(indices)
+        ax.set_xticklabels([str(i) for i in df.index], rotation=45, ha="right")
         ax.set_xlabel("Índice", fontsize=13)
-        ax.set_ylabel("Valor", fontsize=13)
-        ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+        ax.set_ylabel(y_col, fontsize=13)
+    else:
+        # Línea sobre índice
+        ax.plot(df.index, df[y_col], marker="o", linewidth=2)
+        ax.set_xlabel("Índice", fontsize=13)
+        ax.set_ylabel(y_col, fontsize=13)
         ax.grid(True, alpha=0.3)
-
-    elif kind == "hist" and num_cols:
-        col = num_cols[0]
-        ax.hist(df[col].dropna(), bins=15, alpha=0.7, edgecolor='black')
-        ax.set_xlabel(col, fontsize=13)
-        ax.set_ylabel("Frecuencia", fontsize=13)
 
     plt.tight_layout()
     if out_path:
-        plt.savefig(out_path, dpi=150, bbox_inches='tight')
+        plt.savefig(out_path, dpi=150, bbox_inches="tight")
     if show:
         plt.show()
     plt.close()
+
+
 
 
 def df_from_result(qr: QueryResult) -> pd.DataFrame:
