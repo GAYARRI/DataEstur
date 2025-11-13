@@ -1,4 +1,4 @@
-# egatur_agent.py (versión mejorada)
+# egatur_agent.py (versión mejorada con doble eje para 2 métricas)
 from __future__ import annotations
 
 import os, re, json, sqlite3, sys
@@ -69,29 +69,29 @@ SYS_PROMPT = """Eres un asistente experto en SQL para SQLite que trabaja sobre l
 
     Convención para facilitar la generación de gráficos:
     - Siempre que la consulta sea adecuada para graficar, debe devolver:
-        - EXACTAMENTE UNA dimensión principal (por ejemplo YM_min, CCAA_DESTINO_min, PROVINCIA_DESTINO_min,
+        - EXACTAMENTE UNA dimensión principal (por ejemplo YM_min, CCAA_DESTINO_min, PROVINCIA_DESTINO_min, PAIS_DESTINO
         CCAA_RESIDENCIA_min, TIPO_ALOJAMIENTO_min, MOTIVO_VIAJE_min, etc.).
         - EXACTAMENTE UNA métrica principal (gasto total, gasto medio, conteo, porcentaje, etc.).
-    - La dimensión principal debe tener SIEMPRE el alias:
-        dim_value
-    - La métrica principal debe tener SIEMPRE el alias:
-        metric_value
 
     Ejemplos de alias esperados:
-    - SELECT SUBSTR(YM_min, 1, 4) AS dim_value,
-            SUM(NUM_GASTO_TOTAL_min) AS metric_value
+    - SELECT SUBSTR(YM_min, 1, 4) AS periodo,
+            SUM(NUM_GASTO_TOTAL_min) AS gasto_total
     FROM SURVEY_TABLE
     ...
-    - SELECT CCAA_DESTINO_min AS dim_value,
-            AVG(NUM_GASTO_TOTAL_min) AS metric_value
+    - SELECT CCAA_DESTINO_min AS destino,
+            AVG(NUM_GASTO_TOTAL_min) AS gasto_promedio
     FROM SURVEY_TABLE
-    ...
+
+    - SELECT PAIS_DESTINO_min AS destino,
+            AVG(NUM_GASTO_TOTAL_min) AS gasto_promedio
+    FROM SURVEY_TABLE
+     
     - SELECT CASE
-            WHEN NACIONALIDAD_min = 'España' THEN 'Solo española'
-            WHEN REGION_ORIGEN_min = 'Europa' THEN 'Española y europea'
-            ELSE 'Otros orígenes'
-            END AS dim_value,
-            SUM(NUM_GASTO_TOTAL_min) AS metric_value
+            WHEN NACIONALIDAD_min = 'Sólo española' THEN 'Nacional'
+            WHEN NACIONALIDAD_min = 'Española y extranjera' THEN 'Doble_Nac'
+            WHEN NACIONALIDAD_min = 'Sólo extranjera' THEN 'Extranjero'
+            END AS Nacionalidad,
+            SUM(NUM_GASTO_TOTAL_min) AS gasto_total
     FROM SURVEY_TABLE
     ...
 
@@ -100,46 +100,40 @@ SYS_PROMPT = """Eres un asistente experto en SQL para SQLite que trabaja sobre l
     1) Dimensión temporal:
     - La variable temporal básica es YM_min (año-mes).
     - Si el usuario pregunta por años, puedes usar SUBSTR(YM_min, 1, 4) para obtener el año:
-        SUBSTR(YM_min, 1, 4) AS dim_value
+        SUBSTR(YM_min, 1, 4) AS periodo
     - Si el usuario pregunta por meses dentro de un año concreto, puedes agrupar directamente por YM_min.
 
     2) Dimensiones de DESTINO (prioritarias cuando se habla de “gasto por región / destino”):
     - Comunidad autónoma de destino: CCAA_DESTINO_min
     - Provincia de destino: PROVINCIA_DESTINO_min
-    - País de destino: PAIS_DESTINO_min
-    - Región de destino: REGION_DESTINO_min (si existe en el esquema)
+    - Pais de destino : PAIS_DESTINO_min
+    
 
     Ejemplos:
     - "Distribución del gasto por comunidad autónoma de destino" →
-        CCAA_DESTINO_min AS dim_value
+        CCAA_DESTINO_min AS ccaa_destino
     - "Distribución del gasto por provincia de destino" →
-        PROVINCIA_DESTINO_min AS dim_value
-    - "España vs resto de Europa como destino" →
-        usar un CASE sobre PAIS_DESTINO_min y/o REGION_DESTINO_min, por ejemplo:
-        CASE
-        WHEN PAIS_DESTINO_min = 'España' THEN 'España'
-        WHEN REGION_DESTINO_min = 'Europa' THEN 'Resto de Europa'
-        ELSE 'Otros destinos'
-        END AS dim_value
+        PROVINCIA_DESTINO_min AS prov_destino
+    - "Evolución de la Distribución del gasto total por nacionalidad de los turistas con destino canarias desde 2020"   
+        SELECT SUBSTR(YM_min, 1, 4) AS periodo,
+            SUM(CASE WHEN NACIONALIDAD_min='Sólo española' THEN NUM_GASTO_TOTAL_min END) AS solo_espanola,
+            SUM(CASE WHEN NACIONALIDAD_min='Española y extranjera' THEN NUM_GASTO_TOTAL_min END) AS esp_y_ext,
+            SUM(CASE WHEN NACIONALIDAD_min LIKE 'Sólo extranjera' THEN NUM_GASTO_TOTAL_min END) AS solo_extranjera
+        FROM SURVEY_TABLE
+        WHERE CCAA_DESTINO_min = 'Canarias'
+        AND SUBSTR(YM_min, 1, 4) >= '2020'
+        GROUP BY periodo
+        ORDER BY periodo;
 
-    3) Dimensiones de ORIGEN / RESIDENCIA:
+    3) Dimensiones de ORIGEN / RESIDENCIA / :
     - Comunidad autónoma de residencia: CCAA_RESIDENCIA_min
-    - Nacionalidad y región de origen: NACIONALIDAD_min, REGION_ORIGEN_min
-
-    Cuando el usuario pida agregación de nacionalidad en categorías (por ejemplo “solo española / española y europea / otros”),
-    usa la siguiente regla:
-
-        CASE
-        WHEN NACIONALIDAD_min = 'España' THEN 'Solo española'
-        WHEN REGION_ORIGEN_min = 'Europa' THEN 'Española y europea'
-        ELSE 'Otros orígenes'
-        END AS dim_value
+    - Nacionalidad y región de origen: NACIONALIDAD_min
 
     Ejemplos:
     - "Gasto total según nacionalidad agrupada en solo española, española y europea y otros orígenes" →
-        usar el CASE anterior como dim_value y SUM(NUM_GASTO_TOTAL_min) como metric_value.
+        usar NACIONALIDAD_min como nacionalidad y SUM(NUM_GASTO_TOTAL_min) como gasto_total.
     - "Distribución del gasto por comunidad de residencia" →
-        CCAA_RESIDENCIA_min AS dim_value
+        CCAA_RESIDENCIA_min AS region_residencia
 
     4) Variables de gasto (métricas principales):
     - Gastos parciales típicos:
@@ -170,7 +164,7 @@ SYS_PROMPT = """Eres un asistente experto en SQL para SQLite que trabaja sobre l
     - Si el usuario pide "por comunidad autónoma", "por provincia", "por país", "por año", "por motivo del viaje", etc.,
     debes usar GROUP BY sobre esas dimensiones.
     - Si hay varias dimensiones en la pregunta (por ejemplo año y CCAA), agrupa por todas, pero elige UNA como dim_value
-    (la más importante para el gráfico) y deja las demás como columnas adicionales no aliasadas con dim_value.
+    (la más importante para el gráfico) y deja las demás como columnas adicionales agrupadas según dim_value.
 
     7) Filtros temporales:
     - "en 2023" → SUBSTR(YM_min, 1, 4) = '2023'
@@ -226,7 +220,7 @@ def llm_complete(system: str, user: str, examples: List[Tuple[str, str]]) -> str
     resp = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=messages,
-        temperature=0.0,
+        temperature=0,
     )
     return resp.choices[0].message.content.strip()
 
@@ -291,6 +285,7 @@ plt.rcParams.update({
     "legend.fontsize": 11,
     "font.size": 12,
 })
+
 def _is_time_like(series: pd.Series) -> bool:
     """
     Intenta decidir si dim_value representa tiempo (año, año-mes, etc.).
@@ -357,114 +352,223 @@ def pick_plot(df: pd.DataFrame) -> Tuple[str, str]:
         return ("hist", f"Histograma de {num_cols[0]}")
     return ("none", "No hay columnas numéricas o categóricas adecuadas")
 
-def plot_df(df: pd.DataFrame, out_path: Optional[str] = None, show: bool = True, title: Optional[str] = None):
-    """
-    Genera un gráfico a partir de un DataFrame de resultados EGATUR.
+def _is_time_like(series: pd.Series) -> bool:
+    """Heurística sencilla para detectar si una columna parece temporal."""
+    if series is None or series.empty:
+        return False
+    sample = series.dropna().astype(str).head(10)
 
-    Prioridad:
-    1) Si existen las columnas 'metric_value' y/o 'dim_value', se utilizan directamente.
-       - Si dim_value es temporal (año / año-mes) → línea temporal.
-       - Si dim_value es categórica → barras ordenadas.
-    2) Si no existen, se intenta un gráfico sencillo de respaldo.
+    # YYYY
+    if all(len(s) == 4 and s.isdigit() for s in sample):
+        return True
+    # YYYYMM
+    if all(len(s) == 6 and s.isdigit() for s in sample):
+        return True
+    # YYYY-MM o YYYY/MM
+    if all((len(s) == 7 and s[:4].isdigit() and s[4] in "-/") for s in sample):
+        return True
+
+    return False
+
+
+def detect_time_column(df: pd.DataFrame) -> Optional[str]:
+    """Intenta detectar una columna temporal razonable en el DataFrame."""
+    candidates = [c for c in df.columns if any(
+        token in c.upper() for token in ["YM", "FECHA", "ANIO", "AÑO", "ANO", "PERIODO", "PERIOD", "MES"]
+    )]
+    if candidates:
+        return candidates[0]
+
+    # Si no por nombre, miramos contenido
+    for c in df.columns:
+        if _is_time_like(df[c]):
+            return c
+    return None
+
+
+
+def plot_df(
+    df: pd.DataFrame,
+    out_path: Optional[str] = None,
+    show: bool = True,
+    title: Optional[str] = None,
+):
+    """
+    Genera un gráfico a partir de un DataFrame de resultados (EGATUR/FRONTUR).
+
+    Casos soportados (en orden de prioridad):
+
+    1) Caso multi-serie clásico:
+       - Columnas: dim_value, series_value, metric_value
+       -> Una línea por serie_value en el MISMO eje Y.
+
+    2) Caso con 1, 2 o 3 métricas numéricas y un eje X temporal/categórico:
+       - Se detectan columnas numéricas (métricas) y una columna temporal:
+         * 1 métrica: 1 eje Y.
+         * 2 métricas: 2 ejes Y (una por eje).
+         * 3 métricas: dos en el eje izquierdo, una en el derecho.
+
+    3) Fallback: heurística simple si no hay columnas estándar.
     """
     if df is None or df.empty:
         print("⚠️  No hay datos para graficar.")
         return
 
-    # 1) Camino principal: dim_value / metric_value
-    has_metric = "metric_value" in df.columns
-    has_dim = "dim_value" in df.columns
+    df_plot = df.copy()
 
-    if has_metric:
-        y_col = "metric_value"
-
-        # Determinar eje X
-        if has_dim:
-            x_series = df["dim_value"]
-            x_label = "dim_value"
-        else:
-            x_series = pd.Series(df.index, index=df.index)
-            x_label = "Índice"
+    # ─────────────────────────────────────────────
+    # Caso 1: multi-serie dim_value + series_value + metric_value
+    # ─────────────────────────────────────────────
+    if {"dim_value", "series_value", "metric_value"}.issubset(df_plot.columns):
+        # Orden temporal si se puede
+        x_col = "dim_value"
+        x_series = df_plot[x_col]
+        try:
+            if _is_time_like(x_series):
+                df_plot["_x_parsed"] = pd.to_datetime(x_series.astype(str), errors="coerce")
+                if df_plot["_x_parsed"].notna().any():
+                    df_plot = df_plot.sort_values(["_x_parsed", "series_value"])
+                    x_vals_all = df_plot["_x_parsed"]
+                else:
+                    df_plot = df_plot.sort_values([x_col, "series_value"])
+                    x_vals_all = df_plot[x_col]
+            else:
+                df_plot = df_plot.sort_values([x_col, "series_value"])
+                x_vals_all = df_plot[x_col]
+        except Exception:
+            df_plot = df_plot.sort_values([x_col, "series_value"])
+            x_vals_all = df_plot[x_col]
 
         fig, ax = plt.subplots(figsize=(12, 7))
         if title:
             plt.title(title, fontsize=16, fontweight="bold", pad=20)
 
-        # ¿Es temporal o categórico?
-        if _is_time_like(x_series):
-            # Ordenar por tiempo
-            df_plot = df.copy()
-            df_plot["_x_"] = x_series
-            # Intentar convertir a algo ordenable
-            try:
-                df_plot["_x_parsed"] = pd.to_datetime(df_plot["_x_"], errors="coerce")
-                if df_plot["_x_parsed"].notna().any():
-                    df_plot = df_plot.sort_values("_x_parsed")
-                    x_vals = df_plot["_x_parsed"]
-                else:
-                    df_plot = df_plot.sort_values("_x_")
-                    x_vals = df_plot["_x_"]
-            except Exception:
-                df_plot = df.copy()
-                df_plot["_x_"] = x_series
-                df_plot = df_plot.sort_values("_x_")
-                x_vals = df_plot["_x_"]
+        for series, sub in df_plot.groupby("series_value", sort=False):
+            x_vals = x_vals_all.loc[sub.index]
+            ax.plot(x_vals, sub["metric_value"], marker="o", linewidth=2, label=str(series))
 
-            ax.plot(x_vals, df_plot[y_col], marker="o", linewidth=2)
-            ax.set_xlabel(x_label, fontsize=13)
-            ax.set_ylabel(y_col, fontsize=13)
-            ax.grid(True, alpha=0.3)
-
-        else:
-            # Tratar dim_value como categoría → barras
-            df_plot = df.copy()
-            if len(df_plot) > 30:
-                df_plot = df_plot.head(30)
-                print(f"📉 Mostrando solo las primeras 30 filas de {len(df)}")
-
-            x_vals = x_series.loc[df_plot.index]
-            indices = range(len(df_plot))
-            ax.bar(indices, df_plot[y_col])
-            ax.set_xticks(indices)
-            ax.set_xticklabels([str(v) for v in x_vals], rotation=45, ha="right")
-            ax.set_xlabel(x_label, fontsize=13)
-            ax.set_ylabel(y_col, fontsize=13)
-
+        ax.set_xlabel(x_col, fontsize=13)
+        ax.set_ylabel("metric_value", fontsize=13)
+        ax.grid(True, alpha=0.3)
+        ax.legend(loc="best")
         plt.tight_layout()
         if out_path:
             plt.savefig(out_path, dpi=150, bbox_inches="tight")
         if show:
             plt.show()
         plt.close()
-        return  # No continuamos con la heurística
+        return
 
-    # 2) Camino de respaldo: no hay metric_value → algo muy básico
-    print("ℹ️  No se encontraron columnas 'metric_value'; usando heurística simple de respaldo.")
+    # ─────────────────────────────────────────────
+    # Caso 2: generalización 1–3 series numéricas con hasta 2 ejes Y
+    # ─────────────────────────────────────────────
 
-    num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
+    # Intentar identificar columna de tiempo/dimensión X
+    x_col = None
+    if "dim_value" in df_plot.columns:
+        x_col = "dim_value"
+    else:
+        x_col = detect_time_column(df_plot)
+
+    # Columnas numéricas candidatas a métricas
+    num_cols = [c for c in df_plot.columns if pd.api.types.is_numeric_dtype(df_plot[c])]
+    # Excluir la columna temporal si también es numérica (p.ej. año como INT)
+    if x_col in num_cols:
+        num_cols = [c for c in num_cols if c != x_col]
+
+    # Si hay metric_value(s) explícitos, dales prioridad
+    priority_metrics = [c for c in num_cols if c.lower() in ["metric_value", "metric_value_total", "metric_value_avg"]]
+    if priority_metrics:
+        # mover las prioritarias al principio
+        remaining = [c for c in num_cols if c not in priority_metrics]
+        num_cols = priority_metrics + remaining
+
+    if x_col is None and "dim_value" not in df_plot.columns:
+        # Si no hay dimensión clara, creamos un eje X por índice
+        df_plot["__index__"] = range(len(df_plot))
+        x_col = "__index__"
+
+    # Ordenar por tiempo si el eje X lo parece
+    x_series = df_plot[x_col]
+    if _is_time_like(x_series):
+        try:
+            df_plot["_x_parsed"] = pd.to_datetime(x_series.astype(str), errors="coerce")
+            if df_plot["_x_parsed"].notna().any():
+                df_plot = df_plot.sort_values("_x_parsed")
+                x_vals = df_plot["_x_parsed"]
+            else:
+                df_plot = df_plot.sort_values(x_col)
+                x_vals = df_plot[x_col]
+        except Exception:
+            df_plot = df_plot.sort_values(x_col)
+            x_vals = df_plot[x_col]
+    else:
+        df_plot = df_plot.sort_values(x_col)
+        x_vals = df_plot[x_col]
+
+    # Si no hay métricas numéricas → fallback
     if not num_cols:
         print("⚠️  No hay columnas numéricas para graficar.")
         return
 
-    y_col = num_cols[0]
-    fig, ax = plt.subplots(figsize=(12, 7))
+    # Limitar a máximo 3 métricas (como pedías)
+    metrics = num_cols[:3]
+
+    fig, ax1 = plt.subplots(figsize=(12, 7))
     if title:
         plt.title(title, fontsize=16, fontweight="bold", pad=20)
 
-    if len(df) <= 30:
-        # Barras por índice
-        indices = range(len(df))
-        ax.bar(indices, df[y_col])
-        ax.set_xticks(indices)
-        ax.set_xticklabels([str(i) for i in df.index], rotation=45, ha="right")
-        ax.set_xlabel("Índice", fontsize=13)
-        ax.set_ylabel(y_col, fontsize=13)
-    else:
-        # Línea sobre índice
-        ax.plot(df.index, df[y_col], marker="o", linewidth=2)
-        ax.set_xlabel("Índice", fontsize=13)
-        ax.set_ylabel(y_col, fontsize=13)
-        ax.grid(True, alpha=0.3)
+    # Convertimos X a algo ploteable
+    x_vals_series = x_vals
+
+    # Caso 2.a: solo 1 métrica → un eje
+    if len(metrics) == 1:
+        y1 = metrics[0]
+        ax1.plot(x_vals_series, df_plot[y1], marker="o", linewidth=2)
+        ax1.set_xlabel(x_col, fontsize=13)
+        ax1.set_ylabel(y1, fontsize=13)
+        ax1.grid(True, alpha=0.3)
+
+    # Caso 2.b: 2 métricas → 2 ejes (una en cada eje)
+    elif len(metrics) == 2:
+        y1, y2 = metrics[0], metrics[1]
+
+        # Eje izquierdo
+        ax1.plot(x_vals_series, df_plot[y1], marker="o", linewidth=2, label=y1)
+        ax1.set_xlabel(x_col, fontsize=13)
+        ax1.set_ylabel(y1, fontsize=13)
+        ax1.grid(True, alpha=0.3)
+
+        # Eje derecho
+        ax2 = ax1.twinx()
+        ax2.plot(x_vals_series, df_plot[y2], marker="o", linewidth=2, label=y2)
+        ax2.set_ylabel(y2, fontsize=13)
+
+        # Leyenda combinada
+        l1, t1 = ax1.get_legend_handles_labels()
+        l2, t2 = ax2.get_legend_handles_labels()
+        ax1.legend(l1 + l2, t1 + t2, loc="best")
+
+    # Caso 2.c: 3 métricas → 2 en eje izquierdo, 1 en derecho
+    else:  # len(metrics) == 3
+        y1, y2, y3 = metrics[0], metrics[1], metrics[2]
+
+        # Eje izquierdo con dos series
+        ax1.plot(x_vals_series, df_plot[y1], marker="o", linewidth=2, label=y1)
+        ax1.plot(x_vals_series, df_plot[y2], marker="s", linewidth=2, label=y2)
+        ax1.set_xlabel(x_col, fontsize=13)
+        ax1.set_ylabel(f"{y1} / {y2}", fontsize=13)
+        ax1.grid(True, alpha=0.3)
+
+        # Eje derecho con la tercera serie
+        ax2 = ax1.twinx()
+        ax2.plot(x_vals_series, df_plot[y3], marker="^", linewidth=2, label=y3)
+        ax2.set_ylabel(y3, fontsize=13)
+
+        # Leyenda combinada
+        l1, t1 = ax1.get_legend_handles_labels()
+        l2, t2 = ax2.get_legend_handles_labels()
+        ax1.legend(l1 + l2, t1 + t2, loc="best")
 
     plt.tight_layout()
     if out_path:
@@ -472,8 +576,6 @@ def plot_df(df: pd.DataFrame, out_path: Optional[str] = None, show: bool = True,
     if show:
         plt.show()
     plt.close()
-
-
 
 
 def df_from_result(qr: QueryResult) -> pd.DataFrame:

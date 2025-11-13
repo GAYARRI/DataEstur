@@ -1,24 +1,24 @@
 [
-  "Usuario: \"¿Cuál fue el gasto total de los turistas británicos en 2023?\"",
-  "SQL: SELECT SUBSTR(YM_min, 1, 4) AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min = 'Reino Unido' AND SUBSTR(YM_min, 1, 4) = '2023' GROUP BY dim_value;",
+  "Usuario: \"¿Cuál fue el gasto total de los turistas nacionales en 2023?\"",
+  "SQL: SELECT SUBSTR(YM_min, 1, 4) AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS gasto_total FROM SURVEY_TABLE WHERE NACIONALIDAD_min LIKE '%esp%' AND SUBSTR(YM_min, 1, 4) = '2023' GROUP BY dim_value;",
 
-  "Usuario: \"Evolución del gasto total de los turistas alemanes entre 2020 y 2023\"",
-  "SQL: SELECT SUBSTR(YM_min, 1, 4) AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min = 'Alemania' AND SUBSTR(YM_min, 1, 4) BETWEEN '2020' AND '2023' GROUP BY dim_value ORDER BY dim_value;",
+  "Usuario: \"Evolución del gasto total de los turistas internacionales entre 2020 y 2023\"",
+  "SQL: SELECT SUBSTR(YM_min, 1, 4) AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min LIKE '%ext%' AND SUBSTR(YM_min, 1, 4) BETWEEN '2020' AND '2023' GROUP BY dim_value ORDER BY dim_value;",
 
   "Usuario: \"Distribución del gasto total por comunidad autónoma de destino en 2023\"",
   "SQL: SELECT CCAA_DESTINO_min AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE SUBSTR(YM_min, 1, 4) = '2023' GROUP BY CCAA_DESTINO_min ORDER BY metric_value DESC;",
 
-  "Usuario: \"Gasto medio total por viaje de los turistas franceses por comunidad autónoma\"",
-  "SQL: SELECT CCAA_DESTINO_min AS dim_value, AVG(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min = 'Francia' GROUP BY CCAA_DESTINO_min ORDER BY metric_value DESC;",
+  "Usuario: \"Gasto medio total por viaje de los turistas nacionales por comunidad autónoma\"",
+  "SQL: SELECT CCAA_DESTINO_min AS dim_value, AVG(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min LIKE '%esp%' GROUP BY CCAA_DESTINO_min ORDER BY metric_value DESC;",
 
-  "Usuario: \"Gasto total en alojamiento de los turistas italianos por año\"",
-  "SQL: SELECT SUBSTR(YM_min, 1, 4) AS dim_value, SUM(NUM_GASTO_ALOJAMIENTO_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min = 'Italia' GROUP BY dim_value ORDER BY dim_value;",
+  "Usuario: \"Gasto total en alojamiento de los turistas internacionales por año\"",
+  "SQL: SELECT SUBSTR(YM_min, 1, 4) AS dim_value, SUM(NUM_GASTO_ALOJAMIENTO_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min LIKE '%ext%' GROUP BY dim_value ORDER BY dim_value;",
 
-  "Usuario: \"Gasto medio en transporte de los turistas alemanes en Canarias\"",
-  "SQL: SELECT CCAA_DESTINO_min AS dim_value, AVG(NUM_GASTO_TRANSPORTE_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min = 'Alemania' AND CCAA_DESTINO_min = 'Canarias' GROUP BY CCAA_DESTINO_min;",
+  "Usuario: \"Gasto medio en transporte de los turistas internacionales en Canarias\"",
+  "SQL: SELECT CCAA_DESTINO_min AS dim_value, AVG(NUM_GASTO_TRANSPORTE_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min LIKE '%ext%' AND CCAA_DESTINO_min = 'Canarias' GROUP BY CCAA_DESTINO_min;",
 
-  "Usuario: \"¿Qué comunidad autónoma tuvo el mayor gasto total de turistas extranjeros en 2022?\"",
-  "SQL: SELECT CCAA_DESTINO_min AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE SUBSTR(YM_min, 1, 4) = '2022' GROUP BY CCAA_DESTINO_min ORDER BY metric_value DESC LIMIT 1;",
+  "Usuario: \"¿Qué comunidad autónoma tuvo el mayor gasto total de turistas internacionales en 2022?\"",
+  "SQL: SELECT CCAA_DESTINO_min AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min LIKE '%ext%' AND (YM_min, 1, 4) = '2022' GROUP BY CCAA_DESTINO_min ORDER BY metric_value DESC LIMIT 1;",
 
   "Usuario: \"Gasto total de los turistas por comunidad autónoma de residencia en 2023\"",
   "SQL: SELECT CCAA_RESIDENCIA_min AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE SUBSTR(YM_min, 1, 4) = '2023' GROUP BY CCAA_RESIDENCIA_min ORDER BY metric_value DESC;",
@@ -29,8 +29,8 @@
   "Usuario: \"Número de viajes con gasto total superior a 3000 euros en 2023\"",
   "SQL: SELECT 'Viajes > 3000€' AS dim_value, COUNT(*) AS metric_value FROM SURVEY_TABLE WHERE NUM_GASTO_TOTAL_min > 3000 AND SUBSTR(YM_min, 1, 4) = '2023';",
 
-  "Usuario: \"Comparativa del gasto medio en transporte y alojamiento de turistas franceses en 2023\"",
-  "SQL: SELECT 'Transporte' AS dim_value, AVG(NUM_GASTO_TRANSPORTE_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min = 'Francia' AND SUBSTR(YM_min, 1, 4) = '2023' UNION ALL SELECT 'Alojamiento' AS dim_value, AVG(NUM_GASTO_ALOJAMIENTO_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min = 'Francia' AND SUBSTR(YM_min, 1, 4) = '2023';",
+  "Usuario: \"Comparativa del gasto medio en transporte y alojamiento de turistas nacionales en 2023\"",
+  "SQL: SELECT 'Transporte' AS dim_value, AVG(NUM_GASTO_TRANSPORTE_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min LIKE '%esp%' AND SUBSTR(YM_min, 1, 4) = '2023' UNION ALL SELECT 'Alojamiento' AS dim_value, AVG(NUM_GASTO_ALOJAMIENTO_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min = 'Francia' AND SUBSTR(YM_min, 1, 4) = '2023';",
 
   "Usuario: \"Evolución del gasto medio total por comunidad autónoma de destino entre 2021 y 2023\"",
   "SQL: SELECT SUBSTR(YM_min, 1, 4) AS dim_value, CCAA_DESTINO_min, AVG(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE SUBSTR(YM_min, 1, 4) BETWEEN '2021' AND '2023' GROUP BY dim_value, CCAA_DESTINO_min ORDER BY dim_value, CCAA_DESTINO_min;",
@@ -42,17 +42,20 @@
   "SQL: SELECT TIPO_ALOJAMIENTO_min AS dim_value, SUM(NUM_GASTO_ALOJAMIENTO_min) AS metric_value FROM SURVEY_TABLE WHERE SUBSTR(YM_min, 1, 4) = '2023' GROUP BY TIPO_ALOJAMIENTO_min ORDER BY metric_value DESC;",
 
   "Usuario: \"Evolución mensual del gasto total de turistas españoles en 2023\"",
-  "SQL: SELECT YM_min AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min = 'España' AND SUBSTR(YM_min, 1, 4) = '2023' GROUP BY YM_min ORDER BY YM_min;",
+  "SQL: SELECT YM_min AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min LIKE '%esp%' AND SUBSTR(YM_min, 1, 4) = '2023' GROUP BY YM_min ORDER BY YM_min;",
 
   "Usuario: \"Gasto medio total por motivo del viaje en 2023\"",
   "SQL: SELECT MOTIVO_VIAJE_min AS dim_value, AVG(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE SUBSTR(YM_min, 1, 4) = '2023' GROUP BY MOTIVO_VIAJE_min ORDER BY metric_value DESC;",
 
-  "Usuario: \"¿Cuál fue el gasto medio total de los turistas de América del Norte en 2023?\"",
-  "SQL: SELECT 'América del Norte' AS dim_value, AVG(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE REGION_ORIGEN_min = 'América del Norte' AND SUBSTR(YM_min, 1, 4) = '2023';",
+  "Usuario: \"¿Cuál fue el gasto medio total de los turistas internacionales en 2023?\"",
+  "SQL: SELECT 'América del Norte' AS dim_value, AVG(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE REGION_ORIGEN_min LIKE '%ext%' AND SUBSTR(YM_min, 1, 4) = '2023';",
 
   "Usuario: \"Top 5 comunidades con mayor gasto total de turistas internacionales en 2023\"",
-  "SQL: SELECT CCAA_DESTINO_min AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE SUBSTR(YM_min, 1, 4) = '2023' GROUP BY CCAA_DESTINO_min ORDER BY metric_value DESC LIMIT 5;",
+  "SQL: SELECT CCAA_DESTINO_min AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE NACIONALIDAD_min LIKE '%ext%' AND (YM_min, 1, 4) = '2023' GROUP BY CCAA_DESTINO_min ORDER BY metric_value DESC LIMIT 5;",
 
   "Usuario: \"Gasto total según nacionalidad agrupada en solo española, española y europea y otros orígenes en 2023\"",
-  "SQL: SELECT CASE WHEN NACIONALIDAD_min = 'España' THEN 'Solo española' WHEN REGION_ORIGEN_min = 'Europa' THEN 'Española y europea' ELSE 'Otros orígenes' END AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE SUBSTR(YM_min, 1, 4) = '2023' GROUP BY dim_value ORDER BY metric_value DESC;"
+  "SQL: SELECT CASE WHEN NACIONALIDAD_min = 'España' THEN 'Solo española' WHEN REGION_ORIGEN_min = 'Europa' THEN 'Española y europea' ELSE 'Otros orígenes' END AS dim_value, SUM(NUM_GASTO_TOTAL_min) AS metric_value FROM SURVEY_TABLE WHERE SUBSTR(YM_min, 1, 4) = '2023' GROUP BY dim_value ORDER BY metric_value DESC;",
+  
+  "Usuario: \"Evolución del gasto total anual según nacionalidad para turistas destino Canarias desde 2020\"",
+  "SQL: SQL ejecutado: SELECT SUBSTR(YM_min, 1, 4) AS periodo, SUM(CASE WHEN NACIONALIDAD_min='Sólo española' THEN NUM_GASTO_TOTAL_min END) AS solo_espanola, SUM(CASE WHEN NACIONALIDAD_min='Española y extranjera' THEN NUM_GASTO_TOTAL_min END) AS esp_y_ext, SUM(CASE WHEN NACIONALIDAD_min LIKE 'Sólo extranjera' THEN NUM_GASTO_TOTAL_min END) AS solo_extranjera FROM SURVEY_TABLE WHERE CCAA_DESTINO_min = 'Canarias' AND SUBSTR(YM_min, 1, 4) >= '2020' GROUP BY periodo ORDER BY periodo;"
 ]

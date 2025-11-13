@@ -11,6 +11,7 @@ import logging
 import os
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple
+from dotenv import load_dotenv
 
 class SQLGenerator:
     def __init__(self, client, config, metadata, examples):
@@ -87,7 +88,7 @@ DETECCIÓN DE TIPO DE GRÁFICO:
 IMPORTANTE: Para consultas que piden distribución, desglose, porcentaje, composición, reparto - SIEMPRE usar 'pie'
 
 EJEMPLOS DE CONSULTAS CORRECTAS:
-{"C:\Dataestur_Data\ejemplos.json"}
+{r"C:\Dataestur_Data\ejemplos.json"}
 
 FORMATO DE RESPUESTA (SOLO JSON):
 {{"sql": "SELECT ...", "explanation": "Breve explicación en español", "chart_type": "bar|line|pie|table|None"}}
@@ -155,12 +156,12 @@ Responde ÚNICAMENTE con el JSON válido."""
     def generate_sql(self, natural_query: str) -> Dict:
         try:
             response = self.client.chat.completions.create(
-                model="gpt-4",
+                model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": self.create_system_prompt()},
                     {"role": "user", "content": natural_query}
                 ],
-                temperature=0.1,
+                temperature=0,
                 max_tokens=800
             )
             
