@@ -1,0 +1,457 @@
+{
+    "table": "FRONTUR_EGATUR",
+    "columns": {
+        "ID_FECHA": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 117,
+            "top_values": [
+                {
+                    "count": 16734
+                },
+                {
+                    "count": 16475
+                },
+                {
+                    "count": 16217
+                },
+                {
+                    "count": 15386
+                },
+                {
+                    "count": 15232
+                },
+                {
+                    "count": 14819
+                },
+                {
+                    "count": 14789
+                },
+                {
+                    "count": 14685
+                },
+                {
+                    "count": 14374
+                },
+                {
+                    "count": 13945
+                }
+            ]
+        },
+        "ID_CUESTIONARIO": {
+            "type": "float64",
+            "num_nulls": 0,
+            "num_unique": 899421,
+            "min": 20151000000108.0,
+            "max": 20250800059071.0
+        },
+        "TIPO_VISITANTE": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 4,
+            "top_values": [
+                {
+                    "count": 915073
+                },
+                {
+                    "count": 145833
+                },
+                {
+                    "count": 109850
+                },
+                {
+                    "count": 55246
+                }
+            ]
+        },
+        "VIA_SALIDA": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 4,
+            "top_values": [
+                {
+                    "count": 850641
+                },
+                {
+                    "count": 228525
+                },
+                {
+                    "count": 87159
+                },
+                {
+                    "count": 59677
+                }
+            ]
+        },
+        "CCAA_DESTINO": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 20,
+            "top_values": [
+                {
+                    "count": 250898
+                },
+                {
+                    "count": 168747
+                },
+                {
+                    "count": 145833
+                },
+                {
+                    "count": 141823
+                },
+                {
+                    "count": 131388
+                },
+                {
+                    "count": 117138
+                },
+                {
+                    "count": 105731
+                },
+                {
+                    "count": 44592
+                },
+                {
+                    "count": 32719
+                },
+                {
+                    "count": 21095
+                }
+            ]
+        },
+        "ID_ALOJAMIENTO": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 4,
+            "top_values": [
+                {
+                    "count": 537487
+                },
+                {
+                    "count": 340564
+                },
+                {
+                    "count": 255683
+                },
+                {
+                    "count": 92268
+                }
+            ]
+        },
+        "MOTIVO_VIAJE": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 4,
+            "top_values": [
+                {
+                    "count": 695414
+                },
+                {
+                    "count": 255683
+                },
+                {
+                    "count": 186684
+                },
+                {
+                    "count": 88221
+                }
+            ]
+        },
+        "PAQUETE_TURISTICO": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 3,
+            "top_values": [
+                {
+                    "count": 810055
+                },
+                {
+                    "count": 255683
+                },
+                {
+                    "count": 160264
+                }
+            ]
+        },
+        "NUM_PERNOCTACIONES": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 193,
+            "top_values": [
+                {
+                    "count": 255683
+                },
+                {
+                    "count": 175033
+                },
+                {
+                    "count": 106203
+                },
+                {
+                    "count": 103705
+                },
+                {
+                    "count": 79246
+                },
+                {
+                    "count": 74015
+                },
+                {
+                    "count": 58896
+                },
+                {
+                    "count": 52020
+                },
+                {
+                    "count": 49122
+                },
+                {
+                    "count": 48973
+                }
+            ]
+        },
+        "NUM_GASTO": {
+            "type": "float64",
+            "num_nulls": 0,
+            "num_unique": 686586,
+            "min": 0.0,
+            "max": 53830.0878
+        },
+        "NUM_TOTAL_PERNOCTACIONES": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 581712,
+            "top_values": [
+                {
+                    "count": 255685
+                },
+                {
+                    "count": 155
+                },
+                {
+                    "count": 148
+                },
+                {
+                    "count": 148
+                },
+                {
+                    "count": 141
+                },
+                {
+                    "count": 141
+                },
+                {
+                    "count": 135
+                },
+                {
+                    "count": 135
+                },
+                {
+                    "count": 127
+                },
+                {
+                    "count": 123
+                }
+            ]
+        },
+        "NUM_GASTO_TOTAL": {
+            "type": "float64",
+            "num_nulls": 185,
+            "num_unique": 821743,
+            "min": 0.0,
+            "max": 208513564.5
+        },
+        "YM": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 117,
+            "top_values": [
+                {
+                    "count": 16734
+                },
+                {
+                    "count": 16475
+                },
+                {
+                    "count": 16217
+                },
+                {
+                    "count": 15386
+                },
+                {
+                    "count": 15232
+                },
+                {
+                    "count": 14819
+                },
+                {
+                    "count": 14789
+                },
+                {
+                    "count": 14685
+                },
+                {
+                    "count": 14374
+                },
+                {
+                    "count": 13945
+                }
+            ]
+        },
+        "ENCUESTA": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 1,
+            "top_values": [
+                {
+                    "count": 1226002
+                }
+            ]
+        },
+        "TIPO_VIAJERO": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 2,
+            "top_values": [
+                {
+                    "count": 970319
+                },
+                {
+                    "count": 255683
+                }
+            ]
+        },
+        "ID_VIA_ENTRADA": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 4,
+            "top_values": [
+                {
+                    "count": 850641
+                },
+                {
+                    "count": 228525
+                },
+                {
+                    "count": 87159
+                },
+                {
+                    "count": 59677
+                }
+            ]
+        },
+        "PAIS_RESIDENCIA": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 15,
+            "top_values": [
+                {
+                    "count": 226067
+                },
+                {
+                    "count": 197244
+                },
+                {
+                    "count": 133308
+                },
+                {
+                    "count": 89305
+                },
+                {
+                    "count": 72012
+                },
+                {
+                    "count": 70968
+                },
+                {
+                    "count": 67400
+                },
+                {
+                    "count": 61339
+                },
+                {
+                    "count": 61237
+                },
+                {
+                    "count": 60595
+                }
+            ]
+        },
+        "ALOJAMIENTO": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 10,
+            "top_values": [
+                {
+                    "count": 537487
+                },
+                {
+                    "count": 255683
+                },
+                {
+                    "count": 236265
+                },
+                {
+                    "count": 84093
+                },
+                {
+                    "count": 54336
+                },
+                {
+                    "count": 20331
+                },
+                {
+                    "count": 20206
+                },
+                {
+                    "count": 13848
+                },
+                {
+                    "count": 3507
+                },
+                {
+                    "count": 246
+                }
+            ]
+        },
+        "DURACION_VIAJE": {
+            "type": "object",
+            "num_nulls": 0,
+            "num_unique": 6,
+            "top_values": [
+                {
+                    "count": 414827
+                },
+                {
+                    "count": 255683
+                },
+                {
+                    "count": 209998
+                },
+                {
+                    "count": 180064
+                },
+                {
+                    "count": 113455
+                },
+                {
+                    "count": 51975
+                }
+            ]
+        },
+        "NUM_VIAJEROS": {
+            "type": "float64",
+            "num_nulls": 0,
+            "num_unique": 378086,
+            "min": 0.0053,
+            "max": 27903.6202
+        }
+    },
+    "statistics": {
+        "date_range": {
+            "min_date": "2015-10-01",
+            "max_date": "2025-08-01"
+        }
+    }
+}

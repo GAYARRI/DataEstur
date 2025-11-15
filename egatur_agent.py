@@ -512,7 +512,7 @@ def plot_df(
         return
 
     # Limitar a máximo 3 métricas (como pedías)
-    metrics = num_cols[:3]
+    metrics = num_cols[:20]
 
     fig, ax1 = plt.subplots(figsize=(12, 7))
     if title:

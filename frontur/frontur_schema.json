@@ -1,0 +1,106 @@
+[
+  {
+    "cid": 0,
+    "name": "ID_FECHA",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 1,
+    "name": "ENCUESTA",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 2,
+    "name": "ID_CUESTIONARIO",
+    "type": "REAL",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 3,
+    "name": "TIPO_VIAJERO",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 4,
+    "name": "ID_VIA_ENTRADA",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 5,
+    "name": "PAIS_RESIDENCIA",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 6,
+    "name": "CCAA_DESTINO",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 7,
+    "name": "ALOJAMIENTO",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 8,
+    "name": "MOTIVO_VIAJE",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 9,
+    "name": "PAQUETE_TURISTICO",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 10,
+    "name": "DURACION_VIAJE",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 11,
+    "name": "NUM_VIAJEROS",
+    "type": "REAL",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  },
+  {
+    "cid": 12,
+    "name": "YM",
+    "type": "TEXT",
+    "notnull": false,
+    "default": null,
+    "pk": false
+  }
+]

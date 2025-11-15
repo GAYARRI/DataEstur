@@ -38,7 +38,7 @@
   {
     "question": "Total anual de turistas por país de origen (top 5 países)",
     "sql": "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT PAIS_RESIDENCIA, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y GROUP BY PAIS_RESIDENCIA ORDER BY total DESC LIMIT 5"
-  }
+  },
   {
     "question": "Evolución mensual de turistas británicos en Com. Madrid durante 2025",
     "sql": "SELECT YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2025 AND UPPER(TRIM(PAIS_RESIDENCIA)) IN ('UK','GB','REINO UNIDO','UNITED KINGDOM') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','MADRID','COMUNIDADDEMADRID') GROUP BY YM ORDER BY YM"

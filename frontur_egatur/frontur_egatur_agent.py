@@ -1,5 +1,7 @@
-# frontur_agent.py - VERSIÓN COMPLETA CORREGIDA
+# frontur_egatur_agent.py - VERSIÓN COMPLETA CORREGIDA
 import sqlite3
+from sys import path
+from matplotlib import get_data_path
 import pandas as pd
 import openai
 from openai import OpenAI
@@ -19,86 +21,9 @@ class SQLGenerator:
         self.config = config
         self.metadata = metadata
         self.examples = examples
-    
-    def create_system_prompt(self) -> str:
-        """Crear prompt del sistema ultra-específico para FRONTUR"""
-        
-        columns_info = "\n".join([f"- {col}: {self.get_column_description(col)}" for col in self.config['columns']])
-        
-        paises_info = ", ".join([p['PAIS_RESIDENCIA'] for p in self.metadata['column_values']['PAIS_RESIDENCIA']['top_values'][:8]])
-        ccaa_info = ", ".join([c['CCAA_DESTINO'] for c in self.metadata['column_values']['CCAA_DESTINO']['top_values'][:8]])
-        motivos_info = ", ".join([m['MOTIVO_VIAJE'] for m in self.metadata['column_values']['MOTIVO_VIAJE']['top_values'][:5]])
-        
-        examples_text = self.format_few_shot_examples()
-        
-        system_prompt = f"""Eres un experto especializado en la base de datos FRONTUR de estadísticas turísticas de España. 
-Tu única tarea es convertir consultas en español a SQL válido para SQLite . Te paso ejemplos :
-    1.
-    consulta usuario: Total de turistas franceses en la Comunidad de Madrid en los últimos 5 años,
-    consulta sql: SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','COMUNIDADDEMADRID','MADRID') GROUP BY CAST(SUBSTR(YM,1,4) AS INT) ORDER BY anio";
-    2.
-    consulta usuario: Evolución mensual de turistas franceses en Madrid durante los últimos 12 meses,
-    consulta sql: "SELECT YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','COMUNIDADDEMADRID','MADRID') GROUP BY YM ORDER BY YM DESC LIMIT 12";
-    3.
-    consulta usuario: Top 10 países emisores de turistas hacia España el último año,
-    consulta sql: "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT PAIS_RESIDENCIA, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y GROUP BY PAIS_RESIDENCIA ORDER BY total DESC LIMIT 10";
-    4.
-    consulta usuario: Distribución de turistas por comunidad autónoma destino en el año más reciente,
-    consulta sql: WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y GROUP BY CCAA_DESTINO ORDER BY total DESC";
-    5.
-    consulta usuario: Número de turistas alemanes en Canarias durante los últimos 3 años,
-    consulta sql: WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('DE','DEU','ALEMANIA','GERMANY') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('CANARIAS','ISLASCANARIAS') AND CAST(SUBSTR(YM,1,4) AS INT) BETWEEN y-2 AND y GROUP BY anio ORDER BY anio";
-    6.  
-    consulta usuario: Evolución anual de turistas británicos en Cataluña,
-    consulta sql: WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('UK','GB','REINO UNIDO','UNITED KINGDOM') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('CATALUNYA','CATALUNA','CATALONIA') GROUP BY anio ORDER BY anio";
-    7.  
-    consulta usuario: Top 5 comunidades autónomas con mayor número de turistas internacionales en 2024,
-    consulta sql: SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2024 GROUP BY CCAA_DESTINO ORDER BY total DESC LIMIT 5;
-    8. consulta usuario: Evolución número de turistas por pais de residencia,
-    consulta sql: SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio,PAIS_RESIDENCIA, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y GROUP BY (anio,PAIS_RESIDENCIA) ORDER BY anio";
-    
 
-
-ESQUEMA DE LA TABLA FRONTUR:
-{columns_info}
-
-VALORES CLAVE EN LA BASE DE DATOS:
-- PAISES: {paises_info}...
-- COMUNIDADES: {ccaa_info}...
-- MOTIVOS DE VIAJE: {motivos_info}...
-- FECHAS: Desde {self.metadata['statistics']['date_range']['min_date']} hasta {self.metadata['statistics']['date_range']['max_date']}
-
-REGLAS CRÍTICAS:
-1. TODAS las consultas DEBEN filtrar por ENCUESTA='FRONTUR'
-2. La columna ID_FECHA contiene fechas en formato YYYY-MM-DD
-3. Para filtrar por año: SUBSTR(ID_FECHA, 1, 4) = '2024'
-4. La columna YM contiene año-mes en formato YYYY-MM - USAR PARA AGRUPACIONES MENSUALES
-5. Para evoluciones mensuales: usar GROUP BY YM ORDER BY YM ASC (orden cronológico)
-6. Usar LIKE para búsquedas de texto: PAIS_RESIDENCIA LIKE '%Francia%'
-7. La métrica principal es NUM_VIAJEROS (usar SUM)
-8. Para rankings: usar ORDER BY total DESC LIMIT
-9. Para los últimos 12 meses: ORDER BY YM DESC LIMIT 12 pero luego ordenar por YM ASC para gráficos
-
-DETECCIÓN DE TIPO DE GRÁFICO:
-- Usar 'line' SOLO para evoluciones temporales (meses, años, series temporales)
-- Usar 'bar' para rankings y comparaciones entre categorías (top 5, principales, etc.)
-- Usar 'pie' SOLO para desgloses, distribuciones y porcentajes (por países, comunidades, motivos, alojamiento, tipo de viajero)
-- Usar 'table' cuando no sea apropiado ningún gráfico
-
-IMPORTANTE: Para consultas que piden distribución, desglose, porcentaje, composición, reparto - SIEMPRE usar 'pie'
-
-EJEMPLOS DE CONSULTAS CORRECTAS:
-{r"C:\Dataestur_Data\ejemplos.json"}
-
-FORMATO DE RESPUESTA (SOLO JSON):
-{{"sql": "SELECT ...", "explanation": "Breve explicación en español", "chart_type": "bar|line|pie|table|None"}}
-
-Responde ÚNICAMENTE con el JSON válido."""
-        return system_prompt
-    
     def get_column_description(self, column: str) -> str:
         descriptions = {
-            'ENCUESTA': 'Tipo de encuesta (SIEMPRE usar ENCUESTA="FRONTUR" en todas las consultas)',
             'ID_FECHA': 'Fecha (YYYY-MM-DD) - usar SUBSTR(ID_FECHA, 1, 4) para año',
             'YM': 'Año-Mes (YYYY-MM) - ideal para agrupaciones mensuales, ORDENAR POR YM ASC',
             'PAIS_RESIDENCIA': 'País de residencia del turista - ideal para desgloses',
@@ -107,54 +32,129 @@ Responde ÚNICAMENTE con el JSON válido."""
             'MOTIVO_VIAJE': 'Motivo del viaje (Ocio/vacaciones, Negocios, etc) - ideal para desgloses',
             'TIPO_VIAJERO': 'Tipo de viajero (Turista no residente, Excursionista) - ideal para desgloses',
             'ALOJAMIENTO': 'Tipo de alojamiento - ideal para desgloses',
-            'DURACION_VIAJE': 'Duración de la estancia'
+            'DURACION_VIAJE': 'Duración de la estancia',
+            'NUM_GASTO_TOTAL': 'Gasto total de los turistas (métrica económica principal)'
         }
         return descriptions.get(column, column)
-    
-    def format_few_shot_examples(self) -> str:
-        examples_text = ""
-        corrected_examples = [
-            {
-                'question': 'Evolución mensual de turistas franceses en Madrid durante los últimos 12 meses',
-                'sql': "SELECT YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' AND PAIS_RESIDENCIA LIKE '%Francia%' AND CCAA_DESTINO LIKE '%Madrid%' GROUP BY YM ORDER BY YM DESC LIMIT 12",
-                'chart_type': 'line'
-            },
-            {
-                'question': 'Top 5 países con más turistas en 2024',
-                'sql': "SELECT PAIS_RESIDENCIA, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' AND SUBSTR(ID_FECHA, 1, 4) = '2024' GROUP BY PAIS_RESIDENCIA ORDER BY total DESC LIMIT 5",
-                'chart_type': 'bar'
-            },
-            {
-                'question': 'Distribución de turistas por comunidades autónomas en 2024',
-                'sql': "SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' AND SUBSTR(ID_FECHA, 1, 4) = '2024' GROUP BY CCAA_DESTINO ORDER BY total DESC LIMIT 10",
-                'chart_type': 'pie'
-            },
-            {
-                'question': 'Desglose de turistas por motivo de viaje',
-                'sql': "SELECT MOTIVO_VIAJE, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' GROUP BY MOTIVO_VIAJE ORDER BY total DESC",
-                'chart_type': 'pie'
-            },
-            {
-                'question': 'Porcentaje de turistas por tipo de alojamiento en 2024',
-                'sql': "SELECT ALOJAMIENTO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' AND SUBSTR(ID_FECHA, 1, 4) = '2024' GROUP BY ALOJAMIENTO ORDER BY total DESC LIMIT 8",
-                'chart_type': 'pie'
-            },
-            {
-                'question': 'Composición de turistas por tipo de viajero',
-                'sql': "SELECT TIPO_VIAJERO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' GROUP BY TIPO_VIAJERO ORDER BY total DESC",
-                'chart_type': 'pie'
-            }
-        ]
+
+    def extract_columns_from_config(self):
+        """Extraer columnas de config de forma segura - VERSIÓN CORREGIDA"""
+        columns = []
         
-        for i, example in enumerate(corrected_examples):
-            examples_text += f"\n--- EJEMPLO {i+1} ---\n"
-            examples_text += f"PREGUNTA: {example['question']}\n"
-            examples_text += f"SQL: {example['sql']}\n"
-            examples_text += f"CHART_TYPE: {example['chart_type']}\n"
-        return examples_text
-    
+        print(f"🔧 Procesando config de tipo: {type(self.config)}")
+        
+        # Si config es una lista de diccionarios con 'name'
+        if isinstance(self.config, list):
+            for item in self.config:
+                if isinstance(item, dict) and 'name' in item:
+                    columns.append(item['name'])
+                elif isinstance(item, str):
+                    columns.append(item)
+            
+            print(f"🔧 Columnas extraídas de lista: {columns}")
+        
+        # Si config es un diccionario (estructura antigua)
+        elif isinstance(self.config, dict):
+            if 'columns' in self.config:
+                if isinstance(self.config['columns'], list):
+                    columns = self.config['columns']
+                elif isinstance(self.config['columns'], dict):
+                    columns = list(self.config['columns'].keys())
+            else:
+                columns = list(self.config.keys())
+        
+        # Si no se encontraron columnas, usar las principales por defecto
+        if not columns:
+            columns = [
+                'ID_FECHA', 'YM', 'PAIS_RESIDENCIA', 'CCAA_DESTINO', 
+                'NUM_VIAJEROS', 'MOTIVO_VIAJE', 'TIPO_VIAJERO', 
+                'ALOJAMIENTO', 'DURACION_VIAJE', 'NUM_GASTO_TOTAL', 'ENCUESTA'
+            ]
+            print(f"🔧 Usando columnas por defecto: {columns}")
+        else:
+            print(f"🔧 Columnas finales: {columns}")
+        
+        return list(set(columns))  # Eliminar duplicados
+
+    # El resto de los métodos de SQLGenerator permanecen igual...
+    def create_system_prompt(self) -> str:
+        """Crear prompt del sistema ultra-específico para FRONTUR/EGATUR"""
+        
+        # 🔥 USAR MÉTODO SEGURO para extraer columnas
+        columns = self.extract_columns_from_config()
+        columns_info = "\n".join(
+            f"- {col}: {self.get_column_description(col)}"
+            for col in columns
+        )
+
+        # 🔥 EXTRAER VALORES DE METADATA DE FORMA SEGURA
+        paises_info = "Francia, Italia, Reino Unido, Alemania, Estados Unidos, Portugal, Países Bajos, Bélgica"
+        ccaa_info = "Cataluña, Baleares, Canarias, Andalucía, Madrid, Comunidad Valenciana, País Vasco, Galicia"
+        
+        if isinstance(self.metadata, dict):
+            columns_metadata = self.metadata.get('columns', {})
+            
+            # Extraer países
+            if 'PAIS_RESIDENCIA' in columns_metadata:
+                pais_data = columns_metadata['PAIS_RESIDENCIA']
+                if isinstance(pais_data, dict) and 'top_values' in pais_data:
+                    top_paises = pais_data['top_values']
+                    if top_paises and isinstance(top_paises, list):
+                        paises_info = ", ".join([str(p) for p in top_paises[:8]])
+            
+            # Extraer CCAA
+            if 'CCAA_DESTINO' in columns_metadata:
+                ccaa_data = columns_metadata['CCAA_DESTINO']
+                if isinstance(ccaa_data, dict) and 'top_values' in ccaa_data:
+                    top_ccaa = ccaa_data['top_values']
+                    if top_ccaa and isinstance(top_ccaa, list):
+                        ccaa_info = ", ".join([str(c) for c in top_ccaa[:8]])
+
+        examples_text = ""
+        for ex in self.examples:
+            q = ex.get("question", "")
+            s = ex.get("sql", "")
+            chart = ex.get("chart_type", "table")
+            examples_text += f"\n- Pregunta: {q}\n  SQL: {s}\n  chart_type: {chart}\n"
+
+        system_prompt = f"""
+Eres un experto en turismo que genera SQL para una base SQLite llamada FRONTUR_EGATUR.
+Tabla principal: FRONTUR_EGATUR (unificada FRONTUR + EGATUR).
+
+Columnas disponibles:
+{columns_info}
+
+Valores frecuentes:
+- Países de residencia: {paises_info}
+- Comunidades destino: {ccaa_info}
+
+Reglas CRÍTICAS:
+1. NUNCA inventes columnas - usa solo las columnas listadas arriba
+2. SIEMPRE incluye ENCUESTA='EGATUR' en tus consultas WHERE
+3. Para años: usa CAST(SUBSTR(YM,1,4) AS INT) o SUBSTR(ID_FECHA,1,4)
+4. Para meses: utiliza YM (YYYY-MM) y ORDENA POR YM ASC para series temporales
+5. Resultados agregados: siempre usa GROUP BY cuando uses SUM(), COUNT(), AVG()
+
+Debes responder SIEMPRE con un único objeto JSON con esta estructura exacta:
+
+{{
+  "sql": "SELECT ...",
+  "explanation": "Explica brevemente en español lo que hace la consulta",
+  "chart_type": "table|bar|line|pie"
+}}
+
+Ejemplos de pares pregunta-SQL-chart_type:
+{examples_text}
+
+IMPORTANTE: No incluyas texto fuera del JSON. Nada de comentarios adicionales.
+"""
+        return system_prompt.strip()
+
+
     def generate_sql(self, natural_query: str) -> Dict:
+
         try:
+            print("🔄 Generando SQL con OpenAI...")
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
@@ -165,108 +165,111 @@ Responde ÚNICAMENTE con el JSON válido."""
                 max_tokens=800
             )
             
-            content = response.choices[0].message.content.strip()
+            # Acceso seguro a la respuesta
+            if not response.choices:
+                raise ValueError("No choices in response")
+            
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("Empty content in response")
+                
+            content = content.strip()
+            print(f"📄 Respuesta de OpenAI: {content}")
+            
+            # Extraer JSON de la respuesta
             json_match = re.search(r'\{.*\}', content, re.DOTALL)
             if json_match:
-                result = json.loads(json_match.group())
+                json_str = json_match.group()
+                result = json.loads(json_str)
+                
                 # 🔥 FORZAR FILTRO ENCUESTA ='FRONTUR' EN TODAS LAS CONSULTAS
                 if result.get('sql'):
                     sql = result['sql']
+                    print(f"🔧 SQL original: {sql}")
+                    
                     # Verificar si ya tiene cláusula WHERE
                     if 'WHERE' in sql.upper():
                         # Insertar ENCUESTA='FRONTUR' después del WHERE
-                        sql = re.sub(r'WHERE\s+', "WHERE ENCUESTA='FRONTUR' AND ", sql, flags=re.IGNORECASE)
+                        sql = re.sub(r'WHERE\s+', "WHERE ENCUESTA='EGATUR' AND ", sql, flags=re.IGNORECASE)
                     else:
                         # Agregar WHERE si no existe
                         if 'GROUP BY' in sql.upper():
-                            sql = sql.replace('GROUP BY', "WHERE ENCUESTA='FRONTUR' GROUP BY")
+                            sql = sql.replace('GROUP BY', "WHERE ENCUESTA='EGATUR' GROUP BY")
                         elif 'ORDER BY' in sql.upper():
-                            sql = sql.replace('ORDER BY', "WHERE ENCUESTA='FRONTUR' ORDER BY")
+                            sql = sql.replace('ORDER BY', "WHERE ENCUESTA='EGATUR' ORDER BY")
                         elif 'LIMIT' in sql.upper():
-                            sql = sql.replace('LIMIT', "WHERE ENCUESTA='FRONTUR' LIMIT")
+                            sql = sql.replace('LIMIT', "WHERE ENCUESTA='EGATUR' LIMIT")
                         else:
-                            sql += " WHERE ENCUESTA='FRONTUR'"
+                            sql += " WHERE ENCUESTA='EGATUR'"
                     
-                    # 🔥 ELIMINAR FILTROS DUPLICADOS
-                    sql = re.sub(r"ENCUESTA='FRONTUR'\s+AND\s+ENCUESTA='FRONTUR'", "ENCUESTA='FRONTUR'", sql, flags=re.IGNORECASE)
-                    sql = re.sub(r"ENCUESTA='FRONTUR'\s+AND\s+ENCUESTA='FRONTUR'", "ENCUESTA='FRONTUR'", sql, flags=re.IGNORECASE)
-                    
-                    # 🔥 CORREGIR ORDENAMIENTO PARA CONSULTAS TEMPORALES
-                    temporal_keywords = ['evolución', 'mensual', 'anual', 'año', 'años', 'mes', 'meses', 'temporal', 'serie temporal', 'tendencia']
-                    if any(keyword in natural_query.lower() for keyword in temporal_keywords):
-                        if 'ORDER BY YM DESC' in sql.upper():
-                            # Reemplazar ORDER BY YM DESC por ORDER BY YM ASC para orden cronológico
-                            sql = re.sub(r'ORDER BY YM DESC', 'ORDER BY YM ASC', sql, flags=re.IGNORECASE)
-                        elif 'ORDER BY MES DESC' in sql.upper():
-                            sql = re.sub(r'ORDER BY MES DESC', 'ORDER BY MES ASC', sql, flags=re.IGNORECASE)
-                        elif 'ORDER BY AÑO DESC' in sql.upper() or "ORDER BY ANIO DESC" in sql.upper():
-                            sql = re.sub(r'ORDER BY (AÑO|ANIO) DESC', 'ORDER BY \\1 ASC', sql, flags=re.IGNORECASE)
-                        elif 'ORDER BY' not in sql.upper() and any(col in sql.upper() for col in ['YM', 'AÑO', 'ANIO', 'MES']):
-                            # Agregar ORDER BY ASC si no existe
-                            if 'YM' in sql.upper():
-                                sql += " ORDER BY YM ASC"
-                            elif 'AÑO' in sql.upper() or 'ANIO' in sql.upper():
-                                sql += " ORDER BY año ASC"
+                    # Eliminar filtros duplicados
+                    sql = re.sub(r"ENCUESTA='EGATUR'\s+AND\s+ENCUESTA='EGATUR'", "ENCUESTA='EGATUR'", sql, flags=re.IGNORECASE)
                     
                     result['sql'] = sql
+                    print(f"🔧 SQL corregido: {sql}")
                 
-                # 🔥 FORZAR DETECCIÓN DE GRÁFICOS
-                current_chart_type = result.get('chart_type', '').lower()
+                # 🔥 DETECCIÓN DE GRÁFICOS MEJORADA
+                self._detect_chart_type(result, natural_query)
                 
-                # Palabras clave para gráficos de línea (temporal)
-                line_keywords = [
-                    'evolución', 'mensual', 'anual', 'a lo largo del tiempo', 'serie temporal',
-                    'tendencia', 'durante el año', 'por mes', 'por año', 'cronología',
-                    'histórico', 'historico', 'en el tiempo', 'variación', 'variacion',
-                    'desde el año', 'a lo largo de', 'progresión', 'progresion'
-                ]
-                
-                # Palabras clave para gráficos de tarta
-                pie_keywords = [
-                    'distribución', 'distribucion', 'porcentaje', 'desglose', 'reparto', 
-                    'composición', 'composicion', 'proporción', 'proporcion', 'participación',
-                    'participacion', 'qué porcentaje', 'que porcentaje', 'cómo se distribuye',
-                    'como se distribuye', 'repartición', 'reparticion', 'tarta', 'pie chart',
-                    'por comunidades', 'por países', 'por pais', 'por motivo', 'por alojamiento',
-                    'por tipo', 'por destino', 'composicion', 'reparto', 'qué parte', 'que parte',
-                    'cuál es la distribución', 'cual es la distribucion', 'en qué porcentaje',
-                    'en que porcentaje', 'división', 'division', 'clasificación', 'clasificacion'
-                ]
-                
-                # Palabras clave para barras (ranking)
-                bar_keywords = [
-                    'top', 'ranking', 'principales', 'mayores', 'más altos', 'mas altos',
-                    'más visitados', 'mas visitados', 'primeros', 'mejores', 'mayor número',
-                    'lista de', 'clasificación de', 'clasificacion de', 'ordenados por'
-                ]
-                
-                query_lower = natural_query.lower()
-                
-                # Prioridad: 1. Línea (temporal), 2. Tarta (distribución), 3. Barras (ranking)
-                if any(keyword in query_lower for keyword in line_keywords):
-                    result['chart_type'] = 'line'
-                    print(f"🔍 DETECTADO: Gráfico de línea por palabras clave temporales")
-                elif any(keyword in query_lower for keyword in pie_keywords):
-                    result['chart_type'] = 'pie'
-                    print(f"🔍 DETECTADO: Gráfico de tarta por palabras clave de distribución")
-                elif any(keyword in query_lower for keyword in bar_keywords):
-                    result['chart_type'] = 'bar'
-                    print(f"🔍 DETECTADO: Gráfico de barras por palabras clave de ranking")
-                elif not current_chart_type or current_chart_type == 'none':
-                    # Si no se detectó nada, usar tabla por defecto
-                    result['chart_type'] = 'table'
-                    print(f"🔍 DETECTADO: Tabla por defecto")
-                
-                print(f"🎯 Gráfico final seleccionado: {result['chart_type']}")
-                print(f"🔧 SQL corregido: {result['sql']}")
-                    
                 return result
             else:
                 raise ValueError("No se pudo extraer JSON de la respuesta")
                 
         except Exception as e:
+            print(f"❌ Error en generate_sql: {e}")
+            import traceback
+            traceback.print_exc()
             return {"sql": "", "explanation": f"Error: {e}", "chart_type": "table"}
 
+    # 🔥 Y AÑADE ESTE MÉTODO NUEVO AL FINAL DE LA CLASE SQLGenerator
+    def _detect_chart_type(self, result: Dict, natural_query: str):
+        """Detectar tipo de gráfico basado en palabras clave"""
+        query_lower = natural_query.lower()
+        current_chart_type = result.get('chart_type', '').lower()
+        
+        # Palabras clave para gráficos de línea (temporal)
+        line_keywords = [
+            'evolución', 'mensual', 'anual', 'a lo largo del tiempo', 'serie temporal',
+            'tendencia', 'durante el año', 'por mes', 'por año', 'cronología',
+            'histórico', 'historico', 'en el tiempo', 'variación', 'variacion',
+            'desde el año', 'a lo largo de', 'progresión', 'progresion', 'a través del tiempo'
+        ]
+        
+        # Palabras clave para gráficos de tarta
+        pie_keywords = [
+            'distribución', 'distribucion', 'porcentaje', 'desglose', 'reparto', 
+            'composición', 'composicion', 'proporción', 'proporcion', 'participación',
+            'participacion', 'qué porcentaje', 'que porcentaje', 'cómo se distribuye',
+            'como se distribuye', 'repartición', 'reparticion', 'tarta', 'pie chart',
+            'por comunidades', 'por países', 'por pais', 'por motivo', 'por alojamiento',
+            'por tipo', 'por destino', 'qué parte', 'que parte', 'cuál es la distribución',
+            'cual es la distribucion', 'en qué porcentaje', 'en que porcentaje'
+        ]
+        
+        # Palabras clave para barras (ranking)
+        bar_keywords = [
+            'top', 'ranking', 'principales', 'mayores', 'más altos', 'mas altos',
+            'más visitados', 'mas visitados', 'primeros', 'mejores', 'mayor número',
+            'lista de', 'clasificación de', 'clasificacion de', 'ordenados por', 'comparación',
+            'comparacion', 'máximos', 'maximos'
+        ]
+        
+        # Prioridad: 1. Línea (temporal), 2. Tarta (distribución), 3. Barras (ranking)
+        if any(keyword in query_lower for keyword in line_keywords):
+            result['chart_type'] = 'line'
+            print(f"🔍 DETECTADO: Gráfico de línea por palabras clave temporales")
+        elif any(keyword in query_lower for keyword in pie_keywords):
+            result['chart_type'] = 'pie'
+            print(f"🔍 DETECTADO: Gráfico de tarta por palabras clave de distribución")
+        elif any(keyword in query_lower for keyword in bar_keywords):
+            result['chart_type'] = 'bar'
+            print(f"🔍 DETECTADO: Gráfico de barras por palabras clave de ranking")
+        elif not current_chart_type or current_chart_type == 'none':
+            result['chart_type'] = 'table'
+            print(f"🔍 DETECTADO: Tabla por defecto")
+        
+        print(f"🎯 Gráfico final seleccionado: {result['chart_type']}")    
+      
 class QueryExecutor:
     def __init__(self, db_connection, logger):
         self.connection = db_connection
@@ -463,7 +466,7 @@ class Visualizer:
                 
                 bars = ax.bar(x_positions, df_sorted[y_col], color='skyblue', alpha=0.8)
                 ax.set_title(title, fontsize=14, fontweight='bold')
-                ax.set_ylabel('Número de Turistas')
+                ax.set_ylabel('Gasto Turistas')
                 
                 # Configurar etiquetas del eje X
                 ax.set_xticks(x_positions)
@@ -626,7 +629,7 @@ class Visualizer:
             
             # Configurar ejes
             ax.set_title(title, fontsize=14, fontweight='bold')
-            ax.set_ylabel('Número de Turistas')
+            ax.set_ylabel('Gasto Turistas')
             
             # Configurar etiquetas del eje X - USAR FORMATO MEJORADO
             if 'mes_display' in df_clean.columns:
@@ -834,9 +837,9 @@ class Visualizer:
             self.logger.error(f"Error creando tabla: {e}")
             return False
 
-class FronturLLMAgent:
-    def __init__(self, db_path: str, openai_api_key: str, config_path: str = "frontur_agent_config.json"):
-        # Convertir a ruta absoluta y verificar
+class FronturEgaturLLMAgent:
+    def __init__(self, db_path: str, openai_api_key: str, config_path: str = None, metadata_path: str = None, examples_path: str = None):
+        
         self.db_path = os.path.abspath(db_path)
         print(f"📁 Conectando a base de datos: {self.db_path}")
         
@@ -845,10 +848,43 @@ class FronturLLMAgent:
         
         self.client = OpenAI(api_key=openai_api_key)
         self.connection = sqlite3.connect(self.db_path)
-        
+
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # 🔥 CORRECCIÓN: Usar paths por defecto si no se proporcionan
+        if config_path is None:
+            config_path = os.path.join(base_dir, "frontur_egatur_agent_config.json")
+        if metadata_path is None:
+            metadata_path = os.path.join(base_dir, "frontur_egatur_metadata_completo.json")
+        if examples_path is None:
+            examples_path = os.path.join(base_dir, "frontur_egatur_examples.json")
+
         self.config = self.load_config(config_path)
-        self.metadata = self.load_metadata("frontur_metadata_completo.json")
-        self.examples = self.load_examples("frontur_examples.json")
+        self.metadata = self.load_metadata(metadata_path)
+        self.examples = self.load_examples(examples_path)
+        
+        # 🔥 DIAGNÓSTICO: Ver estructura real de los datos
+        print(f"🔍 DIAGNÓSTICO - Config tipo: {type(self.config)}")
+        if isinstance(self.config, list):
+            print(f"   Config es lista con {len(self.config)} elementos")
+            if self.config:
+                print(f"   Primer elemento: {self.config[0]}")
+        elif isinstance(self.config, dict):
+            print(f"   Config es dict con keys: {list(self.config.keys())}")
+        
+        print(f"🔍 DIAGNÓSTICO - Metadata tipo: {type(self.metadata)}")
+        if isinstance(self.metadata, list):
+            print(f"   Metadata es lista con {len(self.metadata)} elementos")
+            if self.metadata:
+                print(f"   Primer elemento: {self.metadata[0]}")
+        elif isinstance(self.metadata, dict):
+            print(f"   Metadata es dict con keys: {list(self.metadata.keys())}")
+        
+        print(f"🔍 DIAGNÓSTICO - Examples tipo: {type(self.examples)}")
+        if isinstance(self.examples, list):
+            print(f"   Examples es lista con {len(self.examples)} elementos")
+            if self.examples:
+                print(f"   Primer elemento: {self.examples[0]}")
         
         self.setup_logging()
         
@@ -857,37 +893,55 @@ class FronturLLMAgent:
         self.visualizer = Visualizer(self.logger)
         
         print("✅ Agente FRONTUR inicializado correctamente")
-    
-    def load_config(self, config_path: str) -> Dict:
+
+    def load_config(self, path: str) -> dict:
+        """Cargar configuración de forma robusta"""
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            print(f"⚠️  Archivo de configuración {config_path} no encontrado")
+            if not os.path.exists(path):
+                print(f"⚠️ Archivo de configuración no encontrado: {path}")
+                return {}
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                print(f"📋 Config cargado desde: {path}")
+                return data
+        except Exception as e:
+            print(f"❌ Error cargando config: {e}")
             return {}
-    
-    def load_metadata(self, metadata_path: str) -> Dict:
+
+    def load_metadata(self, path: str) -> dict:
+        """Cargar metadatos de forma robusta"""
         try:
-            with open(metadata_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            print(f"⚠️  Archivo de metadatos {metadata_path} no encontrado")
+            if not os.path.exists(path):
+                print(f"⚠️ Archivo de metadatos no encontrado: {path}")
+                return {}
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                print(f"📊 Metadata cargado desde: {path}")
+                return data
+        except Exception as e:
+            print(f"❌ Error cargando metadata: {e}")
             return {}
-    
-    def load_examples(self, examples_path: str) -> List[Dict]:
+
+    def load_examples(self, path: str) -> list:
+        """Cargar ejemplos de forma robusta"""
         try:
-            with open(examples_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            print(f"⚠️  Archivo de ejemplos {ejemplos.json} no encontrado")
+            if not os.path.exists(path):
+                print(f"⚠️ Archivo de ejemplos no encontrado: {path}")
+                return []
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                print(f"📚 Examples cargado desde: {path} - {len(data)} ejemplos")
+                return data
+        except Exception as e:
+            print(f"❌ Error cargando examples: {e}")
             return []
-    
+        
     def setup_logging(self):
         logging.basicConfig(
             level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - [FRONTUR_AGENT] %(message)s',
+            format='%(asctime)s - %(levelname)s - [FRONTUR_EGAUR_AGENT] %(message)s',
             handlers=[
-                logging.FileHandler(f'frontur_agent_{datetime.now().strftime("%Y%m%d")}.log'),
+                logging.FileHandler(f'frontur_egatur_agent_{datetime.now().strftime("%Y%m%d")}.log'),
                 logging.StreamHandler()
             ]
         )
@@ -942,14 +996,14 @@ class FronturLLMAgent:
             }
     
     def interactive_mode(self):
-        print("🏨 AGENTE LLM FRONTUR - SISTEMA DE CONSULTAS TURÍSTICAS")
+        print("🏨 AGENTE LLM FRONTUR_EAGATUR - SISTEMA DE CONSULTAS TURÍSTICAS")
         print("=" * 70)
         print("Escribe tu consulta en español o 'salir' para terminar")
         print("Comandos especiales: 'ejemplos', 'estadisticas'")
         print("\n💡 CONSULTAS SUGERIDAS:")
-        print("   📈 Línea: 'Evolución anual de turistas italianos desde 2020'")
-        print("   🥧 Tarta: 'Distribución de turistas por comunidades autónomas'")
-        print("   📊 Barras: 'Top 5 países con más turistas en 2024'")
+        print("   📈 Línea: 'Evolución anual del gasto de turistas italianos desde 2020'")
+        print("   🥧 Tarta: 'Distribución del gasto de turistas no residentes por comunidades autónomas'")
+        print("   📊 Barras: 'Top 5 países con más gasto turista en 2024'")
         print()
         
         while True:
@@ -997,19 +1051,19 @@ class FronturLLMAgent:
         print("\n📚 EJEMPLOS DE CONSULTAS:")
         examples_by_type = {
             "📈 Gráficos de Línea": [
-                "Evolución mensual de turistas franceses en Madrid",
-                "Turistas italianos por año desde 2020",
-                "Serie temporal de turistas en Cataluña"
+                "Evolución mensual del gasto de turistas franceses en Madrid",
+                "Gasto medio turistas italianos por año desde 2020",
+                "Serie temporal de gasto de turistas no residentes en Cataluña"
             ],
             "🥧 Gráficos de Tarta": [
-                "Distribución de turistas por comunidades autónomas",
-                "Desglose de turistas por motivo de viaje", 
-                "Porcentaje de turistas por tipo de alojamiento"
+                "Distribución de gasto turista no residente por comunidades autónomas",
+                "Desglose de gasto turistico por motivo de viaje", 
+                "Porcentaje de gasto turista no residente por tipo de alojamiento"
             ],
             "📊 Gráficos de Barras": [
-                "Top 5 países con más turistas en 2024",
-                "Principales comunidades autónomas por turistas",
-                "Ranking de tipos de alojamiento más usados"
+                "Top 5 países con más gasto turistas en 2024",
+                "Principales comunidades autónomas por gasto turistico no residente",
+                "Ranking de gasto port tipos de alojamiento"
             ]
         }
         
@@ -1024,26 +1078,39 @@ class FronturLLMAgent:
             print("❌ No se cargaron los metadatos")
             return
             
-        stats = self.metadata['statistics']
-        print(f"\n📊 ESTADÍSTICAS FRONTUR:")
-        print(f"   • Total de registros: {stats['total_records']:,}")
-        print(f"   • Rango de fechas: {stats['date_range']['min_date']} a {stats['date_range']['max_date']}")
-        print(f"   • Total de turistas: {stats['total_turistas']:,.0f}")
-        print(f"   • Países únicos: {self.metadata['column_values']['PAIS_RESIDENCIA']['total_unique']}")
-        print(f"   • CCAA únicas: {self.metadata['column_values']['CCAA_DESTINO']['total_unique']}")
-        print(f"   • Motivos de viaje: {self.metadata['column_values']['MOTIVO_VIAJE']['total_unique']}")
+        # Manejar diferentes estructuras de metadata
+        if isinstance(self.metadata, dict):
+            stats = self.metadata.get('statistics', {})
+            print(f"\n📊 ESTADÍSTICAS FRONTUR_EGATUR:")
+            print(f"   • Total de registros: {stats.get('total_records', 'N/A'):,}")
+            date_range = stats.get('date_range', {})
+            print(f"   • Rango de fechas: {date_range.get('min_date', 'N/A')} a {date_range.get('max_date', 'N/A')}")
+            print(f"   • Total de turistas: {stats.get('total_turistas', 'N/A'):,.0f}")
+            
+            column_values = self.metadata.get('column_values', {})
+            paises = column_values.get('PAIS_RESIDENCIA', {})
+            ccaa = column_values.get('CCAA_DESTINO', {})
+            motivo = column_values.get('MOTIVO_VIAJE', {})
+            
+            print(f"   • Países únicos: {paises.get('total_unique', 'N/A')}")
+            print(f"   • CCAA únicas: {ccaa.get('total_unique', 'N/A')}")
+            print(f"   • Motivos de viaje: {motivo.get('total_unique', 'N/A')}")
+        else:
+            print("❌ Estructura de metadatos no reconocida")
     
     def close(self):
         if self.connection:
-            self.connection.close()
+            self.connection.close()    
+
 
 def main():
+
     DB_PATH = r"C:\DataEstur_Data\dataestur.db"
     load_dotenv()
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    client = OpenAI(api_key=OPENAI_API_KEY)
+    
     try:
-        print("🚀 Iniciando Agente LLM FRONTUR...")
+        print("🚀 Iniciando Agente LLM FRONTUR_EGATUR...")
         print(f"📁 Base de datos: {DB_PATH}")
         
         # Verificar que la base de datos existe
@@ -1052,7 +1119,9 @@ def main():
             print("💡 Verifica la ruta del archivo dataestur.db")
             return
         
-        agent = FronturLLMAgent(DB_PATH, OPENAI_API_KEY)
+        # 🔥 CORRECCIÓN: Instanciar sin pasar metadata y examples
+        # Estos se cargan automáticamente desde los archivos JSON
+        agent = FronturEgaturLLMAgent(DB_PATH, OPENAI_API_KEY)
         
         if not agent.config:
             print("⚠️  No se pudo cargar la configuración")
@@ -1068,9 +1137,12 @@ def main():
         print(f"   Verifica que la ruta {DB_PATH} sea correcta")
     except Exception as e:
         print(f"❌ Error inesperado: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         if 'agent' in locals():
-            agent.close()
+            agent.close()    
+    
 
 if __name__ == "__main__":
     main()

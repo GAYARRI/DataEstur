@@ -1,0 +1,22 @@
+[
+  { "name": "ID_FECHA", "type": "TEXT" },
+  { "name": "ID_CUESTIONARIO", "type": "REAL" },
+  { "name": "TIPO_VISITANTE", "type": "TEXT" },
+  { "name": "VIA_SALIDA", "type": "TEXT" },
+  { "name": "CCAA_DESTINO", "type": "TEXT" },
+  { "name": "ID_ALOJAMIENTO", "type": "TEXT" },
+  { "name": "MOTIVO_VIAJE", "type": "TEXT" },
+  { "name": "PAQUETE_TURISTICO", "type": "TEXT" },
+  { "name": "NUM_PERNOCTACIONES", "type": "TEXT" },
+  { "name": "NUM_GASTO", "type": "REAL" },
+  { "name": "NUM_TOTAL_PERNOCTACIONES", "type": "TEXT" },
+  { "name": "NUM_GASTO_TOTAL", "type": "REAL" },
+  { "name": "YM", "type": "TEXT" },
+  { "name": "ENCUESTA", "type": "TEXT" },
+  { "name": "TIPO_VIAJERO", "type": "TEXT" },
+  { "name": "ID_VIA_ENTRADA", "type": "TEXT" },
+  { "name": "PAIS_RESIDENCIA", "type": "TEXT" },
+  { "name": "ALOJAMIENTO", "type": "TEXT" },
+  { "name": "DURACION_VIAJE", "type": "TEXT" },
+  { "name": "NUM_VIAJEROS", "type": "REAL" }
+]
