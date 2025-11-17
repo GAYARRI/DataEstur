@@ -1,7 +1,5 @@
 # frontur_agent.py - VERSIÓN COMPLETA CORREGIDA
 import sqlite3
-from sys import path
-from matplotlib import get_data_path
 import pandas as pd
 import openai
 from openai import OpenAI
@@ -12,95 +10,220 @@ import re
 import logging
 import os
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from dotenv import load_dotenv
+import numpy as np
+
+# ========== QUERY EXECUTOR ==========
+class QueryExecutor:
+    def __init__(self, db_connection, logger):
+        self.connection = db_connection
+        self.logger = logger
+
+    def execute_sql(self, sql: str) -> Tuple[pd.DataFrame, Optional[str]]:
+        try:
+            if not self._is_safe_query(sql):
+                return pd.DataFrame(), "Consulta no permitida por seguridad"
+
+            self.logger.info(f"Ejecutando SQL: {sql}")
+            df = pd.read_sql_query(sql, self.connection)
+
+            if df.empty:
+                self.logger.warning("Consulta ejecutada pero sin resultados")
+            else:
+                self.logger.info(f"Consulta exitosa: {len(df)} filas obtenidas")
+                self.logger.info(f"Columnas obtenidas: {df.columns.tolist()}")
+            return df, None
+
+        except Exception as e:
+            error_msg = f"Error ejecutando SQL: {e}"
+            self.logger.error(error_msg)
+            return pd.DataFrame(), error_msg
+
+    def _is_safe_query(self, sql: str) -> bool:
+        dangerous_keywords = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'CREATE']
+        sql_upper = sql.upper()
+
+        if not sql_upper.strip().startswith(('SELECT', 'WITH')):
+            return False
+
+        for keyword in dangerous_keywords:
+            if keyword in sql_upper:
+                return False
+
+        return True
+
+
+# ========== SQL GENERATOR ==========
 
 class SQLGenerator:
+
     def __init__(self, client, config, metadata, examples):
         self.client = client
         self.config = config
         self.metadata = metadata
         self.examples = examples
-    
+
     def create_system_prompt(self) -> str:
         """Crear prompt del sistema ultra-específico para FRONTUR"""
-        
-        columns_info = "\n".join([f"- {col}: {self.get_column_description(col)}" for col in self.config['columns']])
-        
-        paises_info = ", ".join([p['PAIS_RESIDENCIA'] for p in self.metadata['column_values']['PAIS_RESIDENCIA']['top_values'][:8]])
-        ccaa_info = ", ".join([c['CCAA_DESTINO'] for c in self.metadata['column_values']['CCAA_DESTINO']['top_values'][:8]])
-        motivos_info = ", ".join([m['MOTIVO_VIAJE'] for m in self.metadata['column_values']['MOTIVO_VIAJE']['top_values'][:5]])
-        
-        examples_text = self.format_few_shot_examples()
-        
-        system_prompt = f"""Eres un experto especializado en la base de datos FRONTUR de estadísticas turísticas de España. 
-Tu única tarea es convertir consultas en español a SQL válido para SQLite . Te paso ejemplos :
-    1.
-    consulta usuario: Total de turistas franceses en la Comunidad de Madrid en los últimos 5 años,
-    consulta sql: SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','COMUNIDADDEMADRID','MADRID') GROUP BY CAST(SUBSTR(YM,1,4) AS INT) ORDER BY anio";
-    2.
-    consulta usuario: Evolución mensual de turistas franceses en Madrid durante los últimos 12 meses,
-    consulta sql: "SELECT YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('FR','FRA','FRANCIA','FRANCE') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('COMMADRID','COMUNIDADDEMADRID','MADRID') GROUP BY YM ORDER BY YM DESC LIMIT 12";
-    3.
-    consulta usuario: Top 10 países emisores de turistas hacia España el último año,
-    consulta sql: "WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT PAIS_RESIDENCIA, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y GROUP BY PAIS_RESIDENCIA ORDER BY total DESC LIMIT 10";
-    4.
-    consulta usuario: Distribución de turistas por comunidad autónoma destino en el año más reciente,
-    consulta sql: WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE CAST(SUBSTR(YM,1,4) AS INT)=y GROUP BY CCAA_DESTINO ORDER BY total DESC";
-    5.
-    consulta usuario: Número de turistas alemanes en Canarias durante los últimos 3 años,
-    consulta sql: WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('DE','DEU','ALEMANIA','GERMANY') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('CANARIAS','ISLASCANARIAS') AND CAST(SUBSTR(YM,1,4) AS INT) BETWEEN y-2 AND y GROUP BY anio ORDER BY anio";
-    6.  
-    consulta usuario: Evolución anual de turistas británicos en Cataluña,
-    consulta sql: WITH max_y AS (SELECT MAX(CAST(SUBSTR(YM,1,4) AS INT)) AS y FROM FRONTUR) SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y WHERE UPPER(TRIM(PAIS_RESIDENCIA)) IN ('UK','GB','REINO UNIDO','UNITED KINGDOM') AND REPLACE(REPLACE(UPPER(TRIM(CCAA_DESTINO)),'.',''),' ','') IN ('CATALUNYA','CATALUNA','CATALONIA') GROUP BY anio ORDER BY anio";
-    7.  
-    consulta usuario: Top 5 comunidades autónomas con mayor número de turistas internacionales en 2024,
-    consulta sql: SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE CAST(SUBSTR(YM,1,4) AS INT)=2024 GROUP BY CCAA_DESTINO ORDER BY total DESC LIMIT 5;
-    8. consulta usuario: Evolución número de turistas por pais de residencia,
-    consulta sql: SELECT CAST(SUBSTR(YM,1,4) AS INT) AS anio,PAIS_RESIDENCIA, SUM(NUM_VIAJEROS) AS total FROM FRONTUR, max_y GROUP BY (anio,PAIS_RESIDENCIA) ORDER BY anio";
-    
+        ultimo_periodo = "2025-08"  # el agente puede calcularlo dinámicamente
+        columns_info = "\n".join(
+            [f"- {col}: {self.get_column_description(col)}" for col in self.config.get('columns', [])]
+        )
 
+        system_prompt = f"""Eres un experto especializado en la base de datos FRONTUR de estadísticas turísticas de España. 
+        
+Cuando se te pidan períodos relativos al máximo/último los haces considerando que el último período es {ultimo_periodo},
+PERO los períodos concretos (años o meses) te los puede proporcionar el agente en el propio mensaje del usuario.
+Tu única tarea es convertir consultas en español a SQL válido para SQLite.
 
 ESQUEMA DE LA TABLA FRONTUR:
 {columns_info}
 
-VALORES CLAVE EN LA BASE DE DATOS:
-- PAISES: {paises_info}...
-- COMUNIDADES: {ccaa_info}...
-- MOTIVOS DE VIAJE: {motivos_info}...
-- FECHAS: Desde {self.metadata['statistics']['date_range']['min_date']} hasta {self.metadata['statistics']['date_range']['max_date']}
-
 REGLAS CRÍTICAS:
-1. TODAS las consultas DEBEN filtrar por ENCUESTA='FRONTUR'
-2. La columna ID_FECHA contiene fechas en formato YYYY-MM-DD
-3. Para filtrar por año: SUBSTR(ID_FECHA, 1, 4) = '2024'
-4. La columna YM contiene año-mes en formato YYYY-MM - USAR PARA AGRUPACIONES MENSUALES
-5. Para evoluciones mensuales: usar GROUP BY YM ORDER BY YM ASC (orden cronológico)
-6. Usar LIKE para búsquedas de texto: PAIS_RESIDENCIA LIKE '%Francia%'
-7. La métrica principal es NUM_VIAJEROS (usar SUM)
-8. Para rankings: usar ORDER BY total DESC LIMIT
-9. Para los últimos 12 meses: ORDER BY YM DESC LIMIT 12 pero luego ordenar por YM ASC para gráficos
+1. La columna ID_FECHA contiene fechas en formato YYYY-MM-DD
+2. Para filtrar por año: SUBSTR(YM, 1, 4) = '2024'
+3. La columna YM contiene año-mes en formato YYYY-MM - USAR PARA AGRUPACIONES MENSUALES
+4. Para evoluciones mensuales: usar GROUP BY YM ORDER BY YM ASC (orden cronológico)
+5. Usar LIKE para búsquedas de texto: PAIS_RESIDENCIA LIKE '%Francia%'
+6. La métrica principal es NUM_VIAJEROS (usar SUM)
+7. Para rankings: usar ORDER BY total DESC LIMIT
+8. Para los últimos 12 meses: ORDER BY YM ASC sobre los meses que te indique el agente
+9. Para comparaciones entre años: usar GROUP BY año, categoría
+DIMENSIONES Y SERIES EN GRÁFICOS (MUY IMPORTANTE):
+10. La dimensión tiempo (YM, o bien año+mes) define el eje temporal.
+11. La dimensión medida normalmente es NUM_VIAJEROS (total de viajeros).
+12. La dimensión categoría puede ser, por ejemplo, TIPO_VIAJERO, PAIS_RESIDENCIA,
+    CCAA_DESTINO, MOTIVO_VIAJE, o también el AÑO cuando se comparan años entre sí.
+13. Si no aparecen la dimension de tiempo no aparece considera que se pide el total acumulado,
+   
 
-DETECCIÓN DE TIPO DE GRÁFICO:
-- Usar 'line' SOLO para evoluciones temporales (meses, años, series temporales)
-- Usar 'bar' para rankings y comparaciones entre categorías (top 5, principales, etc.)
-- Usar 'pie' SOLO para desgloses, distribuciones y porcentajes (por países, comunidades, motivos, alojamiento, tipo de viajero)
-- Usar 'table' cuando no sea apropiado ningún gráfico
+DESGLOSES POR CATEGORÍA EN EVOLUCIONES TEMPORALES:
+13. Si el usuario pide una EVOLUCIÓN MENSUAL "por" o "desglosada por" una categoría
+    (p.ej. "evolución mensual del número de turistas por tipo de viajero"):
+    - El SQL debe devolver TIEMPO + CATEGORÍA + MEDIDA, por ejemplo:
+      SELECT YM, TIPO_VIAJERO, SUM(NUM_VIAJEROS) AS total
+      FROM FRONTUR
+      WHERE ...
+      GROUP BY YM, TIPO_VIAJERO
+      ORDER BY YM ASC
+    - Cada valor de la categoría (cada TIPO_VIAJERO) será una serie (una línea) distinta
+      en el gráfico, compartiendo el mismo eje temporal YM.
 
-IMPORTANTE: Para consultas que piden distribución, desglose, porcentaje, composición, reparto - SIEMPRE usar 'pie'
+COMPARACIÓN DE AÑOS "MENSUALMENTE" (2004 vs 2005, etc.):
+14. Si el usuario pide algo como "2004 vs 2005 mensualmente", "comparación mensual 2004 vs 2005"
+    o similar, el patrón correcto es:
+    - SELECT SUBSTR(YM,1,4) AS año,
+             SUBSTR(YM,6,2) AS mes,
+             SUM(NUM_VIAJEROS) AS total
+      FROM FRONTUR
+      WHERE ...
+      GROUP BY año, mes
+      ORDER BY año ASC, mes ASC
+    - En este caso:
+      * La CATEGORÍA es el AÑO (2004, 2005, ...).
+      * El TIEMPO para el eje X es el MES (1–12).
+      * Cada año se representa como una línea distinta en el gráfico.
 
-EJEMPLOS DE CONSULTAS CORRECTAS:
-{r"C:\Dataestur_Data\frontur\ejemplos.json"}
+COMPARACIÓN DE MEDIDAS (DOS MÉTRICAS) EN LA MISMA SERIE TEMPORAL:
+15. Si el usuario pide comparar dos medidas sobre el mismo eje temporal, por ejemplo:
+    "Número de turistas totales vs turistas promedio", se deben devolver dos columnas
+    numéricas en el SELECT, con el tiempo como eje:
+    - SELECT YM,
+             SUM(NUM_VIAJEROS) AS total_turistas,
+             AVG(NUM_VIAJEROS) AS promedio_turistas
+      FROM FRONTUR
+      WHERE ...
+      GROUP BY YM
+      ORDER BY YM ASC
+    - Solo se deben incluir COMO MÁXIMO dos métricas numéricas.
+    - El sistema de gráficos las representará como dos series distintas
+      en el mismo gráfico, usando dos escalas Y (doble eje vertical).
+
+16. No mezcles en la misma consulta múltiples categorías y múltiples métricas si
+    no es necesario: o bien varias series por categoría (misma métrica),
+    o bien dos métricas distintas sobre el mismo tiempo.
+
+
+INTERPRETACIÓN DE PERÍODOS RELATIVOS (MUY IMPORTANTE):
+- El agente puede añadir al final de la consulta del usuario una NOTA como, por ejemplo:
+  "NOTA DEL AGENTE: usar exactamente estos meses: 2020-09, 2020-10, ..., 2025-07"
+  o bien:
+  "NOTA DEL AGENTE: usar exactamente estos años: 2020, 2021, 2022, 2023, 2024"
+
+- SI APARECE UNA NOTA DEL AGENTE:
+  * Debes usar EXACTAMENTE esos valores en la cláusula WHERE.
+  * Para meses: WHERE YM IN ('2020-09', '2020-10', ..., '2025-07')
+  * Para años: WHERE SUBSTR(YM, 1, 4) IN ('2020', '2021', ..., '2024')
+  * NO recalcules tú los períodos, solo utilízalos.
+
+- Solo si NO hay nota del agente puedes interpretar tú expresiones como
+  "últimos 12 meses" o "últimos 5 años" siguiendo las reglas generales anteriores.
+
+SELECCIÓN DE LA CATEGORÍA A PARTIR DEL TEXTO DEL USUARIO (MUY IMPORTANTE):
+
+- El usuario puede pedir desgloses usando expresiones como:
+  "por tipo de viajero", "por vía de entrada", "por país de residencia",
+  "por comunidad autónoma", etc.
+
+- Tu tarea consiste en:
+  1) Leer el texto después de "por ..." o "desglosado por ...".
+  2) Buscar en la lista de columnas y en sus descripciones cuál es la que mejor coincide
+     con esa expresión.
+  3) Usar EXACTAMENTE esa columna como dimensión de categoría en el SELECT y en el GROUP BY,
+     y no otra.
+
+- Nunca reutilices la categoría de una consulta anterior: en cada consulta decide la
+  categoría únicamente por lo que diga el usuario en esta frase.
+
+  REGLA DE FORMATOS DE GRÁFICO (MUY IMPORTANTE):
+- Después de generar el SQL y la explicación, SIEMPRE debes indicar que los formatos de gráfico disponibles son:
+  "líneas", "barras" y "pie".
+- Estos tres formatos deben aparecer SIEMPRE como opciones disponibles en cualquier consulta.
+- No propongas otros tipos de gráficos ni omitas alguno de ellos.
+
+
+EJEMPLOS:
+
+- Si el usuario dice:
+  "Evolución mensual del número de turistas por tipo de viajero entre 2020 y 2025"
+
+  Y existe una columna llamada TIPO_VIAJERO con descripción "Tipo de viajero (Turista no residente, Excursionista)...",
+
+  debes generar algo como:
+  SELECT YM, TIPO_VIAJERO, SUM(NUM_VIAJEROS) AS total
+  FROM FRONTUR
+  WHERE ...
+  GROUP BY YM, TIPO_VIAJERO
+  ORDER BY YM ASC;
+
+- Si el usuario dice:
+  "Evolución mensual del número de turistas por vía de entrada entre 2020 y 2025"
+
+  Y existe una columna llamada VIA_ENTRADA con descripción "Vía de entrada (aérea, carretera, etc.)",
+
+  debes generar algo como:
+  SELECT YM, VIA_ENTRADA, SUM(NUM_VIAJEROS) AS total
+  FROM FRONTUR
+  WHERE ...
+  GROUP BY YM, VIA_ENTRADA
+  ORDER BY YM ASC;
+
+  - SOLO puedes usar columnas que aparezcan en el esquema anterior. 
+    No inventes nombres de columnas.
+  - Nunca uses TIPO_VIAJERO como categoría si el usuario está pidiendo otra cosa
+    (por ejemplo, "por vía de entrada" o "por país de residencia").
+
 
 FORMATO DE RESPUESTA (SOLO JSON):
-{{"sql": "SELECT ...", "explanation": "Breve explicación en español", "chart_type": "bar|line|pie|table|None"}}
+{{"sql": "SELECT ...", "explanation": "Breve explicación en español"}}
 
 Responde ÚNICAMENTE con el JSON válido."""
         return system_prompt
-    
+
+
     def get_column_description(self, column: str) -> str:
         descriptions = {
-            'ENCUESTA': 'Tipo de encuesta (SIEMPRE usar ENCUESTA="FRONTUR" en todas las consultas)',
             'ID_FECHA': 'Fecha (YYYY-MM-DD) - usar SUBSTR(ID_FECHA, 1, 4) para año',
             'YM': 'Año-Mes (YYYY-MM) - ideal para agrupaciones mensuales, ORDENAR POR YM ASC',
             'PAIS_RESIDENCIA': 'País de residencia del turista - ideal para desgloses',
@@ -112,50 +235,9 @@ Responde ÚNICAMENTE con el JSON válido."""
             'DURACION_VIAJE': 'Duración de la estancia'
         }
         return descriptions.get(column, column)
-    
-    def format_few_shot_examples(self) -> str:
-        examples_text = ""
-        corrected_examples = [
-            {
-                'question': 'Evolución mensual de turistas franceses en Madrid durante los últimos 12 meses',
-                'sql': "SELECT YM AS mes, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' AND PAIS_RESIDENCIA LIKE '%Francia%' AND CCAA_DESTINO LIKE '%Madrid%' GROUP BY YM ORDER BY YM DESC LIMIT 12",
-                'chart_type': 'line'
-            },
-            {
-                'question': 'Top 5 países con más turistas en 2024',
-                'sql': "SELECT PAIS_RESIDENCIA, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' AND SUBSTR(ID_FECHA, 1, 4) = '2024' GROUP BY PAIS_RESIDENCIA ORDER BY total DESC LIMIT 5",
-                'chart_type': 'bar'
-            },
-            {
-                'question': 'Distribución de turistas por comunidades autónomas en 2024',
-                'sql': "SELECT CCAA_DESTINO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' AND SUBSTR(ID_FECHA, 1, 4) = '2024' GROUP BY CCAA_DESTINO ORDER BY total DESC LIMIT 10",
-                'chart_type': 'pie'
-            },
-            {
-                'question': 'Desglose de turistas por motivo de viaje',
-                'sql': "SELECT MOTIVO_VIAJE, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' GROUP BY MOTIVO_VIAJE ORDER BY total DESC",
-                'chart_type': 'pie'
-            },
-            {
-                'question': 'Porcentaje de turistas por tipo de alojamiento en 2024',
-                'sql': "SELECT ALOJAMIENTO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' AND SUBSTR(ID_FECHA, 1, 4) = '2024' GROUP BY ALOJAMIENTO ORDER BY total DESC LIMIT 8",
-                'chart_type': 'pie'
-            },
-            {
-                'question': 'Composición de turistas por tipo de viajero',
-                'sql': "SELECT TIPO_VIAJERO, SUM(NUM_VIAJEROS) AS total FROM FRONTUR WHERE ENCUESTA='FRONTUR' GROUP BY TIPO_VIAJERO ORDER BY total DESC",
-                'chart_type': 'pie'
-            }
-        ]
-        
-        for i, example in enumerate(corrected_examples):
-            examples_text += f"\n--- EJEMPLO {i+1} ---\n"
-            examples_text += f"PREGUNTA: {example['question']}\n"
-            examples_text += f"SQL: {example['sql']}\n"
-            examples_text += f"CHART_TYPE: {example['chart_type']}\n"
-        return examples_text
-    
+
     def generate_sql(self, natural_query: str) -> Dict:
+        """Generar SQL a partir de lenguaje natural, con post-procesado de seguridad y coherencia."""
         try:
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -163,211 +245,364 @@ Responde ÚNICAMENTE con el JSON válido."""
                     {"role": "system", "content": self.create_system_prompt()},
                     {"role": "user", "content": natural_query}
                 ],
-                temperature=0,
+                temperature=0.1,
                 max_tokens=800
             )
-            
+
             content = response.choices[0].message.content.strip()
             json_match = re.search(r'\{.*\}', content, re.DOTALL)
             if json_match:
                 result = json.loads(json_match.group())
-        
-                if result.get('sql'):
-                    sql = result['sql']
-                    # Verificar si ya tiene cláusula WHERE
-                    if 'WHERE' in sql.upper():
-                        sql = re.sub(r'WHERE\s+', "WHERE ENCUESTA IS NOT NULL AND ", sql, flags=re.IGNORECASE)
-                    else:
-                        # Agregar WHERE si no existe
-                        if 'GROUP BY' in sql.upper():
-                            sql = sql.replace('GROUP BY', "WHERE ENCUESTA IS NOT NULL' GROUP BY")
-                        elif 'ORDER BY' in sql.upper():
-                            sql = sql.replace('ORDER BY', "WHERE ENCUESTA IS NOT NULL ORDER BY")
-                        elif 'LIMIT' in sql.upper():
-                            sql = sql.replace('LIMIT', "WHERE ENCUESTA IS NOT NULL LIMIT")
-                        else:
-                            sql += " WHERE ENCUESTA=IS NOT NULL"
-                    
-                    # 🔥 CORREGIR ORDENAMIENTO PARA CONSULTAS TEMPORALES
-                    temporal_keywords = ['evolución', 'mensual', 'anual', 'año', 'años', 'mes', 'meses', 'temporal', 'serie temporal', 'tendencia']
-                    if any(keyword in natural_query.lower() for keyword in temporal_keywords):
-                        if 'ORDER BY YM DESC' in sql.upper():
-                            # Reemplazar ORDER BY YM DESC por ORDER BY YM ASC para orden cronológico
-                            sql = re.sub(r'ORDER BY YM DESC', 'ORDER BY YM ASC', sql, flags=re.IGNORECASE)
-                        elif 'ORDER BY MES DESC' in sql.upper():
-                            sql = re.sub(r'ORDER BY MES DESC', 'ORDER BY MES ASC', sql, flags=re.IGNORECASE)
-                        elif 'ORDER BY AÑO DESC' in sql.upper() or "ORDER BY ANIO DESC" in sql.upper():
-                            sql = re.sub(r'ORDER BY (AÑO|ANIO) DESC', 'ORDER BY \\1 ASC', sql, flags=re.IGNORECASE)
-                        elif 'ORDER BY' not in sql.upper() and any(col in sql.upper() for col in ['YM', 'AÑO', 'ANIO', 'MES']):
-                            # Agregar ORDER BY ASC si no existe
-                            if 'YM' in sql.upper():
-                                sql += " ORDER BY YM ASC"
-                            elif 'AÑO' in sql.upper() or 'ANIO' in sql.upper():
-                                sql += " ORDER BY año ASC"
-                    
-                    result['sql'] = sql
-                
-                # 🔥 FORZAR DETECCIÓN DE GRÁFICOS
-                current_chart_type = result.get('chart_type', '').lower()
-                
-                # Palabras clave para gráficos de línea (temporal)
-                line_keywords = [
-                    'evolución', 'mensual', 'anual', 'a lo largo del tiempo', 'serie temporal',
-                    'tendencia', 'durante el año', 'por mes', 'por año', 'cronología',
-                    'histórico', 'historico', 'en el tiempo', 'variación', 'variacion',
-                    'desde el año', 'a lo largo de', 'progresión', 'progresion'
-                ]
-                
-                # Palabras clave para gráficos de tarta
-                pie_keywords = [
-                    'distribución', 'distribucion', 'porcentaje', 'desglose', 'reparto', 
-                    'composición', 'composicion', 'proporción', 'proporcion', 'participación',
-                    'participacion', 'qué porcentaje', 'que porcentaje', 'cómo se distribuye',
-                    'como se distribuye', 'repartición', 'reparticion', 'tarta', 'pie chart',
-                    'por comunidades', 'por países', 'por pais', 'por motivo', 'por alojamiento',
-                    'por tipo', 'por destino', 'composicion', 'reparto', 'qué parte', 'que parte',
-                    'cuál es la distribución', 'cual es la distribucion', 'en qué porcentaje',
-                    'en que porcentaje', 'división', 'division', 'clasificación', 'clasificacion'
-                ]
-                
-                # Palabras clave para barras (ranking)
-                bar_keywords = [
-                    'top', 'ranking', 'principales', 'mayores', 'más altos', 'mas altos',
-                    'más visitados', 'mas visitados', 'primeros', 'mejores', 'mayor número',
-                    'lista de', 'clasificación de', 'clasificacion de', 'ordenados por'
-                ]
-                
-                query_lower = natural_query.lower()
-                
-                # Prioridad: 1. Línea (temporal), 2. Tarta (distribución), 3. Barras (ranking)
-                if any(keyword in query_lower for keyword in line_keywords):
-                    result['chart_type'] = 'line'
-                    print(f"🔍 DETECTADO: Gráfico de línea por palabras clave temporales")
-                elif any(keyword in query_lower for keyword in pie_keywords):
-                    result['chart_type'] = 'pie'
-                    print(f"🔍 DETECTADO: Gráfico de tarta por palabras clave de distribución")
-                elif any(keyword in query_lower for keyword in bar_keywords):
-                    result['chart_type'] = 'bar'
-                    print(f"🔍 DETECTADO: Gráfico de barras por palabras clave de ranking")
-                elif not current_chart_type or current_chart_type == 'none':
-                    # Si no se detectó nada, usar tabla por defecto
-                    result['chart_type'] = 'table'
-                    print(f"🔍 DETECTADO: Tabla por defecto")
-                
-                print(f"🎯 Gráfico final seleccionado: {result['chart_type']}")
-                print(f"🔧 SQL corregido: {result['sql']}")
-                    
-                return result
             else:
-                raise ValueError("No se pudo extraer JSON de la respuesta")
-                
-        except Exception as e:
-            return {"sql": "", "explanation": f"Error: {e}", "chart_type": "table"}
+                raise ValueError("No se pudo extraer JSON de la respuesta del modelo")
 
-class QueryExecutor:
-    def __init__(self, db_connection, logger):
-        self.connection = db_connection
-        self.logger = logger
-    
-    def execute_sql(self, sql: str) -> Tuple[pd.DataFrame, Optional[str]]:
-        try:
-            if not self._is_safe_query(sql):
-                return pd.DataFrame(), "Consulta no permitida por seguridad"
-            
-            self.logger.info(f"Ejecutando SQL: {sql}")
-            df = pd.read_sql_query(sql, self.connection)
-            
-            if df.empty:
-                self.logger.warning("Consulta ejecutada pero sin resultados")
+            if result.get('sql'):
+                sql = result['sql']
+                print(f"🔧 SQL ORIGINAL DIRECTAMENTE DE GPT: {sql}")
+
+                # DIAGNÓSTICO
+                print(f"🔍 DIAGNÓSTICO SQL ORIGINAL:")
+                print(f"   - ¿Tiene CCAA_DESTINO = ? {'CCAA_DESTINO =' in sql}")
+                print(f"   - ¿Tiene LIKE ? {'LIKE' in sql}")
+                print(f"   - ¿Tiene %? {'%' in sql}")
+                if 'CCAA_DESTINO' in sql:
+                    ccaa_match = re.search(r"CCAA_DESTINO\s*=\s*'([^']*)'", sql)
+                    if ccaa_match:
+                        print(f"   - CCAA_DESTINO = '{ccaa_match.group(1)}'")
+
+                # 1. AGREGAR FILTRO ENCUESTA IS NOT NULL
+                if 'WHERE' in sql.upper():
+                    sql = re.sub(r'WHERE\s+', "WHERE ENCUESTA IS NOT NULL AND ", sql, flags=re.IGNORECASE)
+                else:
+                    if 'GROUP BY' in sql.upper():
+                        sql = sql.replace('GROUP BY', "WHERE ENCUESTA IS NOT NULL GROUP BY")
+                    elif 'ORDER BY' in sql.upper():
+                        sql = sql.replace('ORDER BY', "WHERE ENCUESTA IS NOT NULL ORDER BY")
+                    elif 'LIMIT' in sql.upper():
+                        sql = sql.replace('LIMIT', "WHERE ENCUESTA IS NOT NULL LIMIT")
+                    else:
+                        sql += " WHERE ENCUESTA IS NOT NULL"
+
+                # 2. CORREGIR INCONSISTENCIAS DE FECHA
+                if 'SUBSTR(ID_FECHA, 1, 4)' in sql and 'YM' in sql:
+                    print("🔄 Corrigiendo inconsistencia ID_FECHA vs YM")
+                    sql = sql.replace('SUBSTR(ID_FECHA, 1, 4)', 'SUBSTR(YM, 1, 4)')
+
+                # 3. CORREGIR CONDICIONES OR POR IN
+                if 'SUBSTR(YM, 1, 4) =' in sql and 'OR SUBSTR(YM, 1, 4) =' in sql:
+                    print("🔄 Convirtiendo condiciones OR a IN")
+                    year_matches = re.findall(r"SUBSTR\(YM, 1, 4\) = '(\d{4})'", sql)
+                    if year_matches:
+                        years_str = "', '".join(year_matches)
+                        pattern = r"SUBSTR\(YM, 1, 4\) = '\d{4}'(?:\s+OR\s+SUBSTR\(YM, 1, 4\) = '\d{4}')+"
+                        replacement = f"SUBSTR(YM, 1, 4) IN ('{years_str}')"
+                        sql = re.sub(pattern, replacement, sql)
+
+                # 4. CORRECCIÓN PARA COMPARACIONES TEMPORALES
+                comparison_keywords = ['vs', 'versus', 'comparación', 'comparar', 'comparativo', 'entre años']
+                if any(keyword in natural_query.lower() for keyword in comparison_keywords):
+                    print("🔍 Detectada consulta de comparación temporal")
+
+                    if 'SELECT SUBSTR(YM, 1, 7) AS mes' in sql:
+                        print("🔄 Separando año y mes para comparación")
+                        sql = sql.replace(
+                            'SELECT SUBSTR(YM, 1, 7) AS mes',
+                            'SELECT SUBSTR(YM, 1, 4) AS año, SUBSTR(YM, 6, 2) AS mes'
+                        )
+                        if 'GROUP BY mes' in sql:
+                            sql = sql.replace('GROUP BY mes', 'GROUP BY año, mes')
+
+                    elif 'GROUP BY YM' in sql.upper() and 'SUBSTR(YM, 1, 4)' not in sql:
+                        print("🔄 Convirtiendo agrupación YM a año/mes")
+                        if 'SELECT YM' in sql.upper():
+                            sql = re.sub(
+                                r'SELECT\s+YM',
+                                'SELECT SUBSTR(YM, 1, 4) as año, SUBSTR(YM, 6, 2) as mes',
+                                sql,
+                                flags=re.IGNORECASE
+                            )
+                        sql = re.sub(
+                            r'GROUP BY\s+YM',
+                            'GROUP BY SUBSTR(YM, 1, 4), SUBSTR(YM, 6, 2)',
+                            sql,
+                            flags=re.IGNORECASE
+                        )
+
+                    # Eliminar columnas duplicadas
+                    if sql.count('AS año') > 1:
+                        print("🔄 Eliminando columnas duplicadas")
+                        sql = re.sub(r',\s*SUBSTR\(YM, 1, 4\) AS año', '', sql)
+
+                    # Corregir GROUP BY redundante
+                    if 'GROUP BY año, mes, año' in sql:
+                        sql = sql.replace('GROUP BY año, mes, año', 'GROUP BY año, mes')
+
+                    # Corregir ORDER BY
+                    if 'ORDER BY mes ASC' in sql and 'año' in sql:
+                        sql = sql.replace('ORDER BY mes ASC', 'ORDER BY año, mes ASC')
+
+                # 5. CORREGIR ORDENAMIENTO TEMPORAL
+                temporal_keywords = [
+                    'evolución', 'mensual', 'anual', 'año', 'años',
+                    'mes', 'meses', 'temporal', 'serie temporal', 'tendencia'
+                ]
+                if any(keyword in natural_query.lower() for keyword in temporal_keywords):
+                    if 'ORDER BY YM DESC' in sql.upper():
+                        sql = re.sub(r'ORDER BY YM DESC', 'ORDER BY YM ASC', sql, flags=re.IGNORECASE)
+                    elif 'ORDER BY MES DESC' in sql.upper():
+                        sql = re.sub(r'ORDER BY MES DESC', 'ORDER BY MES ASC', sql, flags=re.IGNORECASE)
+                    elif 'ORDER BY AÑO DESC' in sql.upper() or "ORDER BY ANIO DESC" in sql.upper():
+                        sql = re.sub(r'ORDER BY (AÑO|ANIO) DESC', 'ORDER BY \\1 ASC', sql, flags=re.IGNORECASE)
+                    elif 'ORDER BY' not in sql.upper() and any(
+                        col in sql.upper() for col in ['YM', 'AÑO', 'ANIO', 'MES']
+                    ):
+                        if 'YM' in sql.upper():
+                            sql += " ORDER BY YM ASC"
+                        elif 'AÑO' in sql.upper() or 'ANIO' in sql.upper():
+                            sql += " ORDER BY año ASC"
+
+                # 🚨 CORRECCIÓN FORZADA - SIN COMPLEJIDAD
+                print("🔄 APLICANDO CORRECCIÓN FORZADA...")
+
+                # CORRECCIÓN 1: Si tiene CCAA_DESTINO = 'Comunidad de Madrid', cambiarlo
+                if "CCAA_DESTINO = 'Comunidad de Madrid'" in sql:
+                    print("🚨 CORRIGIENDO: CCAA_DESTINO = 'Comunidad de Madrid'")
+                    sql = sql.replace(
+                        "CCAA_DESTINO = 'Comunidad de Madrid'",
+                        "UPPER(CCAA_DESTINO) LIKE '%MADRID%'"
+                    )
+
+                # CORRECCIÓN 2: Si tiene CCAA_DESTINO = 'Com.Madrid', cambiarlo
+                if "CCAA_DESTINO = 'Com.Madrid'" in sql:
+                    print("🚨 CORRIGIENDO: CCAA_DESTINO = 'Com.Madrid'")
+                    sql = sql.replace(
+                        "CCAA_DESTINO = 'Com.Madrid'",
+                        "UPPER(CCAA_DESTINO) LIKE '%MADRID%'"
+                    )
+
+                # CORRECCIÓN 3: Cualquier CCAA_DESTINO = 'texto'
+                if "CCAA_DESTINO = '" in sql:
+                    print("🚨 CORRIGIENDO: Cualquier CCAA_DESTINO =")
+                    sql = re.sub(
+                        r"CCAA_DESTINO = '([^']*)'",
+                        "UPPER(CCAA_DESTINO) LIKE '%MADRID%'",
+                        sql
+                    )
+
+                # CORRECCIÓN 4: Asegurar que PAIS_RESIDENCIA use LIKE %% (ejemplo con Francia)
+                if "PAIS_RESIDENCIA = '" in sql:
+                    print("🚨 CORRIGIENDO: PAIS_RESIDENCIA =")
+                    sql = re.sub(
+                        r"PAIS_RESIDENCIA = '([^']*)'",
+                        "UPPER(PAIS_RESIDENCIA) LIKE '%FRANCIA%'",
+                        sql
+                    )
+                elif "PAIS_RESIDENCIA LIKE '" in sql and "%" not in sql:
+                    print("🚨 CORRIGIENDO: PAIS_RESIDENCIA LIKE sin %")
+                    sql = re.sub(
+                        r"PAIS_RESIDENCIA LIKE '([^']*)'",
+                        "UPPER(PAIS_RESIDENCIA) LIKE '%FRANCIA%'",
+                        sql
+                    )
+
+                print("✅ CORRECCIONES APLICADAS EXITOSAMENTE")
+
+                # 🆕 DETECCIÓN DE COMPARACIONES TEMPORALES MEJORADA (solo logging)
+                comparison_patterns = [
+                    r'últimos?\s+(\d+)\s+(años?|meses?)',
+                    r'comparación\s+entre\s+(\d+)\s+y\s+(\d+)',
+                    r'(\d+)\s+vs\s+(\d+)',
+                    r'evolución\s+de\s+los\s+últimos?\s+(\d+)'
+                ]
+                for pattern in comparison_patterns:
+                    if re.search(pattern, natural_query.lower()):
+                        print(f"🔍 Detectada consulta de comparación temporal (pattern: {pattern})")
+
+                result['sql'] = sql
+                print(f"🔧 SQL FINAL: {result['sql']}")
+                return result
+
             else:
-                self.logger.info(f"Consulta exitosa: {len(df)} filas obtenidas")
-                self.logger.info(f"Columnas obtenidas: {df.columns.tolist()}")
-                self.logger.info(f"Primeras filas:\n{df.head()}")
-            
-            return df, None
-            
+                raise ValueError("La respuesta del modelo no contiene clave 'sql'")
+
         except Exception as e:
-            error_msg = f"Error ejecutando SQL: {e}"
-            self.logger.error(error_msg)
-            return pd.DataFrame(), error_msg
-    
-    def _is_safe_query(self, sql: str) -> bool:
-        dangerous_keywords = ['DROP', 'DELETE', 'INSERT', 'UPDATE', 'ALTER', 'CREATE']
-        sql_upper = sql.upper()
-        
-        if not sql_upper.strip().startswith(('SELECT', 'WITH')):
-            return False
-        
-        for keyword in dangerous_keywords:
-            if keyword in sql_upper:
-                return False
-        
-        return True
+            return {"sql": "", "explanation": f"Error: {e}"}
+
+
+# ========== VISUALIZER MEJORADO ==========
 
 class Visualizer:
     def __init__(self, logger):
         self.logger = logger
         plt.style.use('default')
         sns.set_palette("husl")
-        # Configurar fuente para caracteres especiales
         plt.rcParams['font.family'] = 'DejaVu Sans'
         plt.rcParams['axes.unicode_minus'] = False
+
+    def _identify_series_dimensions(self, df: pd.DataFrame) -> Dict:
+    
+        """Identificar qué dimensiones están presentes en los datos"""
+        dimensions = {
+            'has_time': False,
+            'has_categories': False,
+            'has_multiple_metrics': False,
+            'time_column': None,
+            'category_column': None,
+            'metric_columns': [],
+            'series_type': 'simple'  # simple, temporal, categorizada, multi_metrica
+        }
+
+        # 🔴 CASO ESPECIAL: año + mes (comparación de años mensualmente)
+        year_cols = [c for c in ['año', 'anio', 'ANIO', 'ANO'] if c in df.columns]
+        if 'mes' in df.columns and year_cols:
+            year_col = year_cols[0]
+            dimensions['has_time'] = True
+            dimensions['time_column'] = 'mes'
+            dimensions['has_categories'] = True
+            dimensions['category_column'] = year_col
+            # métricas numéricas (máx 2)
+            numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+            dimensions['metric_columns'] = numeric_cols[:2]
+            if len(numeric_cols) > 1:
+                dimensions['has_multiple_metrics'] = True
+            dimensions['series_type'] = 'temporal_categorizada'
+            self.logger.info(f"Dimensiones detectadas (año+mes): {dimensions}")
+            return dimensions
+
+        # 🔵 Resto de casos (lo que ya tenías)
+        time_cols = ['YM', 'ID_FECHA', 'anio', 'mes', 'año', 'fecha']
+        for col in time_cols:
+            if col in df.columns:
+                dimensions['has_time'] = True
+                dimensions['time_column'] = col
+                break
+
+        categorical_cols = df.select_dtypes(exclude=['number']).columns.tolist()
+        categorical_cols = [
+            col for col in categorical_cols
+            if col not in time_cols
+            and col not in ['mes_display', 'index']
+            and not col.startswith('Unnamed')
+        ]
+
+        if len(categorical_cols) > 0:
+            dimensions['has_categories'] = True
+            dimensions['category_column'] = categorical_cols[0]
+
+        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
+        if len(numeric_cols) > 0:
+            dimensions['metric_columns'] = numeric_cols
+            if len(numeric_cols) > 1:
+                dimensions['has_multiple_metrics'] = True
+                dimensions['metric_columns'] = numeric_cols[:2]
+
+        if dimensions['has_time'] and dimensions['has_categories']:
+            dimensions['series_type'] = 'temporal_categorizada'
+        elif dimensions['has_time'] and dimensions['has_multiple_metrics']:
+            dimensions['series_type'] = 'temporal_multi_metrica'
+        elif dimensions['has_time']:
+            dimensions['series_type'] = 'temporal_simple'
+        elif dimensions['has_categories']:
+            dimensions['series_type'] = 'categorizada'
+        elif dimensions['has_multiple_metrics']:
+            dimensions['series_type'] = 'multi_metrica'
+
+        self.logger.info(f"Dimensiones detectadas: {dimensions}")
+        return dimensions
+
+
+       
+    def get_available_chart_types(self, df: pd.DataFrame) -> List[str]:
+        if df.empty:
+            return ['tabla']
+        return ['tabla', 'barras', 'línea', 'pie']
+
+
+  
     
     def create_chart(self, df: pd.DataFrame, chart_type: str, title: str) -> bool:
-        """Crear gráfico - VERSIÓN CORREGIDA con mejor logging"""
+    
+        """Crear gráfico adaptado a las dimensiones detectadas"""
         if df.empty:
             self.logger.warning("DataFrame vacío, no se puede crear gráfico")
             return False
-        
-        self.logger.info(f"Intentando crear gráfico tipo: {chart_type}")
+
+        chart_type = chart_type.lower().strip()
+        self.logger.info(f"Creando gráfico tipo: {chart_type}")
         self.logger.info(f"DataFrame shape: {df.shape}")
-        self.logger.info(f"Columnas: {df.columns.tolist()}")
-        self.logger.info(f"Datos para gráfico:\n{df}")
-        
+
+        # 🔴 CASO ESPECIAL: PIE (forzamos un camino ultra-simple y determinista)
+        if chart_type in ['pie', 'torta']:
+            try:
+                if df.shape[1] < 2:
+                    self.logger.warning("No hay suficientes columnas para pie (se necesitan al menos 2)")
+                    return False
+
+                # Usamos SIEMPRE: primera columna = etiquetas, segunda = valores
+                labels = df.iloc[:, 0].astype(str).values
+                sizes = df.iloc[:, 1].values
+
+                fig, ax = plt.subplots(figsize=(10, 6))
+                wedges, texts, autotexts = ax.pie(
+                    sizes,
+                    labels=labels,
+                    autopct='%1.1f%%',
+                    startangle=90
+                )
+                ax.set_title(f"{title}\n(Distribución - Pie)", fontsize=14, fontweight='bold')
+                ax.axis('equal')
+
+                plt.tight_layout()
+                plt.show()
+                self.logger.info("Gráfico pie (simple) creado exitosamente")
+                return True
+
+            except Exception as e:
+                self.logger.error(f"Error creando gráfico pie (simple): {e}")
+                return False
+
+        # 🔵 RESTO DE TIPOS: usamos tu lógica adaptativa actual
+        dimensions = self._identify_series_dimensions(df)
+        print(f"🎯 SERIE DETECTADA: {dimensions['series_type']}")
+        print(f"   - Tiempo: {dimensions['time_column']}")
+        print(f"   - Categoría: {dimensions['category_column']}")
+        print(f"   - Métricas: {dimensions['metric_columns']}")
+
         try:
-            # RESET INDEX CRÍTICO - Esto evita el error de indexación ambiguo
             df_clean = df.reset_index(drop=True).copy()
-            
-            # PREPROCESAR DATOS PARA GRÁFICOS - CORREGIDO
             df_clean = self._preprocess_data_for_chart(df_clean)
-            
-            # Asegurar que las columnas numéricas sean del tipo correcto
-            for col in df_clean.select_dtypes(include=['number']).columns:
-                df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
-            
+
             fig, ax = plt.subplots(figsize=(12, 6))
-            
+
             success = False
-            if chart_type == 'bar' and len(df_clean) > 1:
-                self.logger.info("Creando gráfico de barras")
-                success = self._create_bar_chart(df_clean, ax, title)
-            elif chart_type == 'line' and len(df_clean) > 1:
-                self.logger.info("Creando gráfico de línea")
-                success = self._create_line_chart(df_clean, ax, title)
-            elif chart_type == 'pie' and len(df_clean) >= 1:
-                self.logger.info("Creando gráfico de torta")
-                success = self._create_pie_chart(df_clean, ax, title)
-            else:
-                self.logger.info("Creando tabla de display")
+            if chart_type == 'barras':
+                success = self._create_adaptive_bar_chart(df_clean, dimensions, ax, title)
+            elif chart_type in ['línea', 'líneas']:
+                success = self._create_adaptive_line_chart(df_clean, dimensions, ax, title)
+            elif chart_type == 'tabla':
                 success = self._create_table_display(df_clean, ax, title)
-            
+            else:
+                # Cualquier otro tipo desconocido → tabla
+                success = self._create_table_display(df_clean, ax, f"{title} (tabla)")
+
             if success:
                 plt.tight_layout()
                 plt.show()
-                self.logger.info("Gráfico creado exitosamente")
+                self.logger.info(f"Gráfico {chart_type} creado exitosamente")
                 return True
             else:
+                self.logger.warning(f"No se pudo crear gráfico {chart_type}, fallback a tabla")
                 plt.close(fig)
-                self.logger.warning("No se pudo crear el gráfico, falló el método específico")
-                return False
-                    
-        except Exception as e:
-            self.logger.error(f"Error creando gráfico: {e}")
-            # Fallback a tabla - USAR df EN LUGAR DE df_clean
-            try:
-                self.logger.info("Intentando fallback a tabla")
                 fig, ax = plt.subplots(figsize=(12, 6))
-                # Usar el DataFrame original (df) en lugar de df_clean que puede no estar definido
+                self._create_table_display(df_clean, ax, f"{title} (tabla)")
+                plt.tight_layout()
+                plt.show()
+                return True
+
+        except Exception as e:
+            self.logger.error(f"Error creando gráfico {chart_type}: {e}")
+            try:
+                fig, ax = plt.subplots(figsize=(12, 6))
                 self._create_table_display(df.reset_index(drop=True), ax, f"{title} (fallback a tabla)")
                 plt.tight_layout()
                 plt.show()
@@ -376,520 +611,393 @@ class Visualizer:
                 self.logger.error(f"Error en fallback a tabla: {fallback_error}")
                 return False
     
-    def _preprocess_data_for_chart(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Preprocesar datos para gráficos - CORREGIDO para problemas de texto"""
-        df_processed = df.copy()
         
-        # Limpiar textos de comunidades autónomas
-        for col in df_processed.select_dtypes(include=['object']).columns:
-            df_processed[col] = df_processed[col].astype(str).apply(self._clean_text)
-        
-        # Convertir meses YYYY-MM a formato más legible
-        if 'mes' in df_processed.columns:
-            df_processed['mes_display'] = df_processed['mes'].apply(self._format_month)
-        elif 'YM' in df_processed.columns:
-            df_processed['mes_display'] = df_processed['YM'].apply(self._format_month)
-        
-        # Asegurar orden cronológico si hay columna YM
-        if 'YM' in df_processed.columns:
-            df_processed = df_processed.sort_values('YM', ascending=True)
-            self.logger.info(f"DataFrame ordenado por YM: {df_processed['YM'].tolist()}")
-        
-        return df_processed
+    def _create_adaptive_line_chart(self, df: pd.DataFrame, dimensions: Dict, ax, title: str) -> bool:
     
-    def _clean_text(self, text: str) -> str:
-        """Limpiar texto para mostrar correctamente en gráficos"""
-        if pd.isna(text) or text == 'nan':
-            return 'N/A'
-        
-        # Reemplazar caracteres problemáticos
-        text = str(text).strip()
-        
-        # Abreviar textos muy largos (especialmente importante para gráficos de torta)
-        if len(text) > 25:
-            words = text.split()
-            if len(words) > 3:
-                text = ' '.join(words[:3]) + '...'
-            else:
-                # Si tiene pocas palabras pero es largo, truncar
-                text = text[:22] + '...'
-        
-        return text
-    
-    def _format_month(self, month_str: str) -> str:
-        """Convertir formato YYYY-MM a formato legible"""
-        if pd.isna(month_str) or month_str == 'nan':
-            return 'N/A'
-        
+        """Gráfico de torta adaptado (pie)"""
         try:
-            # Para formato YYYY-MM
-            if len(month_str) == 7 and '-' in month_str:
-                year, month = month_str.split('-')
-                month_names = {
-                    '01': 'Ene', '02': 'Feb', '03': 'Mar', '04': 'Abr',
-                    '05': 'May', '06': 'Jun', '07': 'Jul', '08': 'Ago',
-                    '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic'
-                }
-                return f"{month_names.get(month, month)} {year}"
+            if not dimensions['has_categories']:
+                print("⚠️  No hay categorías para gráfico de pie")
+                return False
+
+            category_col = dimensions['category_column']
+            metric_col = dimensions['metric_columns'][0] if dimensions['metric_columns'] else None
+
+            if not metric_col:
+                pie_data = df[category_col].value_counts()
+                labels = pie_data.index
+                sizes = pie_data.values
             else:
-                return str(month_str)
-        except:
-            return str(month_str)
+                df_sorted = df.sort_values(metric_col, ascending=False)
+                labels = df_sorted[category_col].apply(self._clean_text).values
+                sizes = df_sorted[metric_col].values
+
+            wedges, texts, autotexts = ax.pie(
+                sizes,
+                labels=labels,
+                autopct='%1.1f%%',
+                startangle=90,
+                shadow=False
+            )
+
+            for autotext in autotexts:
+                autotext.set_color('white')
+                autotext.set_fontweight('bold')
+
+            ax.set_title(f"{title}\n(Distribución)", fontsize=14, fontweight='bold')
+            ax.axis('equal')
+
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Error en gráfico de torta adaptativo: {e}")
+            return False
     
-    def _create_bar_chart(self, df: pd.DataFrame, ax, title: str) -> bool:
-        """Crear gráfico de barras - CORREGIDO para problemas de texto"""
+
+    def _create_adaptive_bar_chart(self, df: pd.DataFrame, dimensions: Dict, ax, title: str) -> bool:
+        """Gráfico de barras adaptado a las dimensiones"""
         try:
-            numeric_cols = df.select_dtypes(include=['number']).columns
-            categorical_cols = df.select_dtypes(exclude=['number']).columns
-            
-            if len(numeric_cols) > 0 and len(categorical_cols) > 0:
-                x_col = categorical_cols[0]
-                y_col = numeric_cols[0]
-                
-                # Usar columna display si existe
-                if 'mes_display' in df.columns and x_col == 'mes':
-                    x_labels = df['mes_display'].values
+            metric_cols = dimensions['metric_columns']
+
+            if not metric_cols:
+                return False
+
+            # CASO 1: Simple - 1 métrica, 1 categoría o tiempo
+            if len(metric_cols) == 1:
+                metric = metric_cols[0]
+
+                df_sorted = df.sort_values(metric, ascending=False)
+
+                # Etiquetas eje X
+                if dimensions['has_categories']:
+                    x_labels = df_sorted[dimensions['category_column']].apply(self._clean_text).values
+                elif dimensions['has_time'] and 'mes_display' in df_sorted.columns:
+                    x_labels = df_sorted['mes_display'].values
                 else:
-                    x_labels = df[x_col].values
-                
-                # Ordenar por valor para mejor visualización
-                df_sorted = df.sort_values(y_col, ascending=False)
-                
-                # Usar índices numéricos para evitar problemas de indexación
+                    x_labels = [str(i) for i in range(len(df_sorted))]
+
                 x_positions = range(len(df_sorted))
-                
-                bars = ax.bar(x_positions, df_sorted[y_col], color='skyblue', alpha=0.8)
-                ax.set_title(title, fontsize=14, fontweight='bold')
-                ax.set_ylabel('Número de Turistas')
-                
-                # Configurar etiquetas del eje X
+                bars = ax.bar(x_positions, df_sorted[metric], alpha=0.8)
+
+                ax.set_title(f"{title}\n(Gráfico de Barras)", fontsize=14, fontweight='bold')
+                ax.set_ylabel(metric)
                 ax.set_xticks(x_positions)
-                
-                # Usar etiquetas procesadas
-                if 'mes_display' in df_sorted.columns and x_col == 'mes':
-                    display_labels = df_sorted['mes_display'].values
-                else:
-                    display_labels = df_sorted[x_col].apply(self._clean_text).values
-                
-                ax.set_xticklabels(display_labels, rotation=45, ha='right', fontsize=9)
-                
-                # Añadir valores en las barras
-                for i, bar in enumerate(bars):
+                ax.set_xticklabels(x_labels, rotation=45, ha='right', fontsize=9)
+
+                # Valores encima de barras
+                for bar in bars:
                     height = bar.get_height()
                     if pd.notnull(height) and height > 0:
-                        ax.text(bar.get_x() + bar.get_width()/2., height + height*0.01,
-                               f'{height:,.0f}', ha='center', va='bottom', fontsize=8)
-                
-                # Formatear eje Y
-                ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x/1e6:.1f}M' if x >= 1e6 else f'{x/1e3:.0f}K' if x >= 1000 else f'{x:.0f}'))
-                
+                        ax.text(
+                            bar.get_x() + bar.get_width() / 2.,
+                            height + height * 0.01,
+                            f'{height:,.0f}',
+                            ha='center',
+                            va='bottom',
+                            fontsize=8
+                        )
+
+                self._format_y_axis(ax, df_sorted[metric])
                 return True
+
+            # CASO 2: Múltiples métricas
+            elif len(metric_cols) == 2:
+                return self._create_dual_metric_bar_chart(df, dimensions, ax, title)
+
             return False
-            
+
         except Exception as e:
-            self.logger.error(f"Error en gráfico de barras: {e}")
+            self.logger.error(f"Error en gráfico de barras adaptativo: {e}")
             return False
-    
-    def _create_line_chart(self, df: pd.DataFrame, ax, title: str) -> bool:
-        """Crear gráfico de líneas para series temporales - MEJORADO para años"""
+
+    def _create_dual_metric_line_chart(self, df: pd.DataFrame, dimensions: Dict, ax, title: str) -> bool:
+        """Gráfico de líneas con 2 métricas y escalas duales"""
         try:
-            # RESET INDEX CRÍTICO - Evita el error "truth value of Index is ambiguous"
-            df_plot = df.reset_index(drop=True).copy()
-            
-            # PREPROCESAR DATOS
-            df_plot = self._preprocess_data_for_chart(df_plot)
-            
-            # Identificar columnas de tiempo y valor
-            time_col, value_col, category_col = self._identify_chart_columns(df_plot)
-            
-            if not time_col or not value_col:
-                self.logger.warning("No se pudieron identificar columnas para gráfico de líneas")
-                return False
-            
-            # Preparar datos temporales
-            df_plot = self._prepare_time_data(df_plot, time_col)
-            
-            # Si hay columna de categoría, crear múltiples líneas
-            if category_col and len(df_plot[category_col].unique()) > 1:
-                return self._create_multi_line_chart(df_plot, time_col, value_col, category_col, ax, title)
+            time_col = dimensions['time_column']
+            metric1, metric2 = dimensions['metric_columns'][:2]
+
+            if time_col in df.columns:
+                df = df.sort_values(time_col, ascending=True)
+
+            ax2 = ax.twinx()
+
+            if time_col == 'YM' and 'mes_display' in df.columns:
+                x_values = df['mes_display'].values
             else:
-                return self._create_single_line_chart(df_plot, time_col, value_col, ax, title)
-                
+                x_values = df[time_col].apply(self._clean_text).values
+
+            line1 = ax.plot(x_values, df[metric1], marker='o', linewidth=2, label=metric1)
+            ax.set_ylabel(metric1)
+            ax.tick_params(axis='y')
+
+            line2 = ax2.plot(x_values, df[metric2], marker='s', linewidth=2, label=metric2)
+            ax2.set_ylabel(metric2)
+            ax2.tick_params(axis='y')
+
+            ax.set_title(f"{title}\n(Comparación de Métricas)", fontsize=14, fontweight='bold')
+
+            lines = line1 + line2
+            labels = [l.get_label() for l in lines]
+            ax.legend(lines, labels, loc='upper left')
+
+            if len(x_values) > 6:
+                plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+
+            return True
+
         except Exception as e:
-            self.logger.error(f"Error en gráfico de líneas: {e}")
+            self.logger.error(f"Error en gráfico dual de líneas: {e}")
             return False
-    
-    def _identify_chart_columns(self, df: pd.DataFrame) -> Tuple[Optional[str], Optional[str], Optional[str]]:
-        """Identificar automáticamente columnas para el gráfico"""
-        time_columns = ['anio', 'mes', 'YM', 'ID_FECHA', 'fecha', 'year', 'month', 'año']
-        numeric_cols = df.select_dtypes(include=['number']).columns.tolist()
-        categorical_cols = df.select_dtypes(exclude=['number']).columns.tolist()
-        
-        # Buscar columna de tiempo
-        time_col = None
-        for col in time_columns:
-            if col in df.columns:
-                time_col = col
-                break
-        
-        # Buscar columna de valor (excluir posibles índices)
-        value_col = None
-        for col in numeric_cols:
-            if col not in time_columns and col not in ['index', 'level_0']:
-                value_col = col
-                break
-        if not value_col and numeric_cols:
-            value_col = numeric_cols[0]
-        
-        # Buscar columna de categoría
-        category_col = None
-        for col in categorical_cols:
-            if col != time_col and len(df[col].unique()) > 1 and len(df[col].unique()) <= 10:
-                category_col = col
-                break
-        
-        return time_col, value_col, category_col
-    
-    def _prepare_time_data(self, df: pd.DataFrame, time_col: str) -> pd.DataFrame:
-        """Preparar datos temporales para plotting - MEJORADO para años"""
-        df_prepared = df.copy()
-        
-        # Eliminar filas con time_col nula
-        df_prepared = df_prepared.dropna(subset=[time_col])
-        
-        if df_prepared.empty:
-            return df_prepared
-        
-        if time_col == 'YM':
-            # Convertir YM a datetime para ordenar correctamente
-            df_prepared['YM_datetime'] = pd.to_datetime(df_prepared[time_col] + '-01', errors='coerce')
-            # Eliminar conversiones fallidas
-            df_prepared = df_prepared.dropna(subset=['YM_datetime'])
-            df_prepared = df_prepared.sort_values('YM_datetime', ascending=True)
-        elif time_col in ['anio', 'year', 'año']:
-            # Convertir a numérico y ordenar
-            df_prepared[time_col] = pd.to_numeric(df_prepared[time_col], errors='coerce')
-            df_prepared = df_prepared.dropna(subset=[time_col])
-            df_prepared = df_prepared.sort_values(time_col, ascending=True)
-        elif time_col == 'mes':
-            # Ordenar por YM si existe, sino por el mes directamente
-            if 'YM' in df_prepared.columns:
-                df_prepared = df_prepared.sort_values('YM', ascending=True)
-            else:
-                df_prepared = df_prepared.sort_values(time_col, ascending=True)
-        
-        return df_prepared
-    
-    def _create_single_line_chart(self, df: pd.DataFrame, time_col: str, value_col: str, ax, title: str) -> bool:
-        """Crear gráfico de línea simple - CORREGIDO para orden temporal correcto"""
+
+    def _create_dual_metric_bar_chart(self, df: pd.DataFrame, dimensions: Dict, ax, title: str) -> bool:
+        """Gráfico de barras con 2 métricas"""
         try:
-            # Hacer una copia y limpiar datos nulos CRÍTICO
-            df_clean = df.copy()
-            
-            # Eliminar filas con valores nulos en las columnas críticas
-            df_clean = df_clean.dropna(subset=[time_col, value_col])
-            
-            if df_clean.empty:
-                self.logger.warning("DataFrame vacío después de limpiar NaN")
-                return False
-            
-            # ORDENAR POR TIEMPO CORRECTAMENTE - ORDEN ASCENDENTE para líneas temporales
-            if time_col == 'mes' and 'YM' in df_clean.columns:
-                # Si tenemos YM, usarlo para ordenar correctamente (orden ascendente)
-                df_clean = df_clean.sort_values('YM', ascending=True)
-            elif time_col == 'mes':
-                # Ordenar meses cronológicamente (del más antiguo al más reciente)
-                df_clean = df_clean.sort_values(time_col, ascending=True)
+            metric1, metric2 = dimensions['metric_columns'][:2]
+
+            df_sorted = df.sort_values(metric1, ascending=False)
+
+            if dimensions['has_categories']:
+                x_labels = df_sorted[dimensions['category_column']].apply(self._clean_text).values
             else:
-                # Ordenar por la columna de tiempo (ascendente)
-                df_clean = df_clean.sort_values(time_col, ascending=True)
-            
-            # Reset index después de ordenar
-            df_clean = df_clean.reset_index(drop=True)
-            
-            # Usar índice numérico para el plotting
-            x_values = range(len(df_clean))
-            y_values = df_clean[value_col].values
-            
-            # Crear línea principal
-            line = ax.plot(x_values, y_values, marker='o', linewidth=2, markersize=6, 
-                          color='#2E86AB', alpha=0.8)[0]
-            
-            # Añadir puntos y valores (solo si no son NaN)
-            for i, (x, y) in enumerate(zip(x_values, y_values)):
-                if pd.notnull(y) and y > 0:  # Solo añadir texto si el valor no es NaN y es positivo
-                    ax.text(x, y, f'{y:,.0f}', ha='center', va='bottom', fontsize=8,
-                           bbox=dict(boxstyle='round,pad=0.2', facecolor='yellow', alpha=0.7))
-            
-            # Configurar ejes
-            ax.set_title(title, fontsize=14, fontweight='bold')
-            ax.set_ylabel('Número de Turistas')
-            
-            # Configurar etiquetas del eje X - USAR FORMATO MEJORADO
-            if 'mes_display' in df_clean.columns:
-                x_labels = df_clean['mes_display'].values
-            else:
-                x_labels = []
-                for val in df_clean[time_col].values:
-                    if pd.notnull(val):
-                        x_labels.append(self._clean_text(str(val)))
-                    else:
-                        x_labels.append('N/A')
-            
-            ax.set_xticks(x_values)
+                x_labels = [str(i) for i in range(len(df_sorted))]
+
+            x_positions = np.arange(len(df_sorted))
+            width = 0.35
+
+            bars1 = ax.bar(x_positions - width / 2, df_sorted[metric1], width, label=metric1, alpha=0.8)
+            bars2 = ax.bar(x_positions + width / 2, df_sorted[metric2], width, label=metric2, alpha=0.8)
+
+            ax.set_title(f"{title}\n(Comparación de Métricas)", fontsize=14, fontweight='bold')
+            ax.set_ylabel('Valores')
+            ax.set_xticks(x_positions)
             ax.set_xticklabels(x_labels, rotation=45, ha='right', fontsize=9)
-            ax.set_xlabel('Tiempo')
-            
-            # Grid y formato
-            ax.grid(True, alpha=0.3)
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x/1e3:.0f}K' if x >= 1000 else f'{x:.0f}'))
-            
+            ax.legend()
+
+            for bars in [bars1, bars2]:
+                for bar in bars:
+                    height = bar.get_height()
+                    if pd.notnull(height) and height > 0:
+                        ax.text(
+                            bar.get_x() + bar.get_width() / 2.,
+                            height + height * 0.01,
+                            f'{height:,.0f}',
+                            ha='center',
+                            va='bottom',
+                            fontsize=7
+                        )
+
+            self._format_y_axis(ax, pd.concat([df_sorted[metric1], df_sorted[metric2]]))
             return True
-            
+
         except Exception as e:
-            self.logger.error(f"Error en gráfico de línea simple: {e}")
+            self.logger.error(f"Error en gráfico dual de barras: {e}")
             return False
-    
-    def _create_multi_line_chart(self, df: pd.DataFrame, time_col: str, value_col: str, 
-                               category_col: str, ax, title: str) -> bool:
-        """Crear gráfico de líneas múltiples - CORREGIDO para NaN"""
+
+    def _create_categorical_line_chart(self, df: pd.DataFrame, dimensions: Dict, ax, title: str) -> bool:
+        """Gráfico de líneas con múltiples categorías"""
         try:
-            # Limpiar datos nulos primero
-            df_clean = df.dropna(subset=[time_col, value_col, category_col]).copy()
-            
-            if df_clean.empty:
-                self.logger.warning("DataFrame vacío después de limpiar NaN")
-                return False
-                
-            categories = df_clean[category_col].unique()
-            colors = plt.cm.Set3(range(len(categories)))
-            
-            # Para cada categoría, trazar una línea
+            time_col = dimensions['time_column']
+            category_col = dimensions['category_column']
+            metric_col = dimensions['metric_columns'][0]
+
+            if time_col in df.columns:
+                df = df.sort_values(time_col, ascending=True)
+
+            categories = df[category_col].unique()
+            colors = plt.cm.tab10(np.linspace(0, 1, len(categories)))
+
             for i, category in enumerate(categories):
-                category_data = df_clean[df_clean[category_col] == category].copy()
-                category_data = category_data.sort_values(time_col, ascending=True)  # ORDEN ASCENDENTE
-                
-                # Usar índice numérico
-                x_values = range(len(category_data))
-                y_values = category_data[value_col].values
-                
-                ax.plot(x_values, y_values, marker='o', linewidth=2, markersize=5,
-                       color=colors[i], label=str(category), alpha=0.8)
-                
-                # Añadir etiquetas de valores (solo si no son NaN)
-                for x, y in zip(x_values, y_values):
-                    if pd.notnull(y) and y > 0:
-                        ax.text(x, y, f'{y:,.0f}', ha='center', va='bottom', fontsize=7)
-            
-            # Configurar el gráfico
-            ax.set_title(title, fontsize=14, fontweight='bold')
-            ax.set_ylabel('Número de Turistas')
-            
-            # Configurar etiquetas del eje X
-            ref_data = df_clean[df_clean[category_col] == categories[0]].sort_values(time_col, ascending=True)
-            
-            if 'mes_display' in ref_data.columns:
-                x_labels = ref_data['mes_display'].values
-            else:
-                x_labels = []
-                for val in ref_data[time_col].values:
-                    if pd.notnull(val):
-                        x_labels.append(self._clean_text(str(val)))
-                    else:
-                        x_labels.append('N/A')
-            
-            ax.set_xticks(range(len(ref_data)))
-            ax.set_xticklabels(x_labels, rotation=45, ha='right', fontsize=8)
-            ax.set_xlabel('Tiempo')
-            
-            ax.legend(title=category_col, fontsize=9)
+                category_data = df[df[category_col] == category]
+
+                if time_col == 'YM' and 'mes_display' in category_data.columns:
+                    x_values = category_data['mes_display'].values
+                else:
+                    x_values = category_data[time_col].apply(self._clean_text).values
+
+                ax.plot(
+                    x_values,
+                    category_data[metric_col],
+                    color=colors[i],
+                    marker='o',
+                    linewidth=2,
+                    label=self._clean_text(str(category))
+                )
+
+            ax.set_title(f"{title}\n(Evolución por Categorías)", fontsize=14, fontweight='bold')
+            ax.set_ylabel(metric_col)
+            ax.legend()
             ax.grid(True, alpha=0.3)
-            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x/1e3:.0f}K' if x >= 1000 else f'{x:.0f}'))
-            
+
+            if len(x_values) > 6:
+                plt.setp(ax.get_xticklabels(), rotation=45, ha='right')
+
+            self._format_y_axis(ax, df[metric_col])
             return True
-            
+
         except Exception as e:
-            self.logger.error(f"Error en gráfico de líneas múltiples: {e}")
+            self.logger.error(f"Error en gráfico categórico de líneas: {e}")
             return False
-    
-    def _create_pie_chart(self, df: pd.DataFrame, ax, title: str) -> bool:
-        """Crear gráfico de torta - MEJORADO para desgloses"""
+
+    def _create_adaptive_pie_chart(self, df: pd.DataFrame, dimensions: Dict, ax, title: str) -> bool:
+        
+        """Gráfico de torta adaptado"""
         try:
-            numeric_cols = df.select_dtypes(include=['number']).columns
-            categorical_cols = df.select_dtypes(exclude=['number']).columns
-            
-            if len(numeric_cols) > 0 and len(categorical_cols) > 0:
-                label_col = categorical_cols[0]
-                value_col = numeric_cols[0]
-                
-                # Limitar a 10 categorías máximo para mejor visualización
-                df_plot = df.head(10).copy()
-                df_plot = df_plot.reset_index(drop=True)
-                
-                # Calcular porcentajes
-                total = df_plot[value_col].sum()
-                if total == 0:
-                    self.logger.warning("Suma total es cero, no se puede crear gráfico de torta")
-                    return False
-                
-                df_plot['porcentaje'] = (df_plot[value_col] / total) * 100
-                
-                # Limpiar etiquetas y preparar datos
-                labels = []
-                sizes = []
-                colors = plt.cm.Pastel2(range(len(df_plot)))
-                
-                for _, row in df_plot.iterrows():
-                    label = self._clean_text(str(row[label_col]))
-                    # Añadir porcentaje a la etiqueta
-                    porcentaje = row['porcentaje']
-                    label_with_pct = f"{label} ({porcentaje:.1f}%)"
-                    labels.append(label_with_pct)
-                    sizes.append(row[value_col])
-                
-                # Crear gráfico de torta
-                wedges, texts, autotexts = ax.pie(
-                    sizes,
-                    labels=labels,
-                    autopct='%1.1f%%',
-                    startangle=90,
-                    textprops={'fontsize': 9},
-                    colors=colors,
-                    pctdistance=0.85
-                )
-                
-                # Mejorar legibilidad
-                for autotext in autotexts:
-                    autotext.set_color('black')
-                    autotext.set_fontweight('bold')
-                    autotext.set_fontsize(8)
-                
-                # Añadir un círculo en el centro para hacer un donut (opcional)
-                centre_circle = plt.Circle((0,0),0.70,fc='white')
-                ax.add_artist(centre_circle)
-                
-                # Añadir título y información adicional
-                ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
-                ax.text(0, -1.2, f'Total: {total:,.0f} turistas', ha='center', fontsize=10, 
-                       bbox=dict(boxstyle='round,pad=0.3', facecolor='lightgray', alpha=0.7))
-                
-                # Equal aspect ratio asegura que el pie se dibuje como un círculo
-                ax.axis('equal')
-                
-                return True
-            return False
-            
-        except Exception as e:
-            self.logger.error(f"Error en gráfico de torta: {e}")
-            return False
-    
-    def _create_table_display(self, df: pd.DataFrame, ax, title: str) -> bool:
-        """Crear visualización de tabla - CORREGIDO"""
-        try:
-            ax.axis('tight')
-            ax.axis('off')
-            
-            # Reset index para evitar problemas
-            df_display = df.reset_index(drop=True).copy()
-            
-            # Formatear números para mejor legibilidad
-            for col in df_display.select_dtypes(include=['number']).columns:
-                df_display[col] = df_display[col].apply(
-                    lambda x: f'{x:,.0f}' if pd.notnull(x) and abs(x) >= 1000 else 
-                             f'{x:.1f}' if pd.notnull(x) else ''
-                )
-            
-            # Limpiar textos
-            for col in df_display.select_dtypes(include=['object']).columns:
-                df_display[col] = df_display[col].apply(self._clean_text)
-            
-            # Crear tabla
-            table = ax.table(
-                cellText=df_display.values,
-                colLabels=df_display.columns,
-                cellLoc='center',
-                loc='center',
-                colWidths=[0.15] * len(df_display.columns)
+            if not dimensions['has_categories']:
+                print("⚠️  No hay categorías para gráfico de pie")
+                return False
+
+            category_col = dimensions['category_column']
+            metric_col = dimensions['metric_columns'][0] if dimensions['metric_columns'] else None
+
+            if not metric_col:
+                pie_data = df[category_col].value_counts()
+                labels = pie_data.index
+                sizes = pie_data.values
+            else:
+                df_sorted = df.sort_values(metric_col, ascending=False)
+                labels = df_sorted[category_col].apply(self._clean_text).values
+                sizes = df_sorted[metric_col].values
+
+            wedges, texts, autotexts = ax.pie(
+                sizes,
+                labels=labels,
+                autopct='%1.1f%%',
+                startangle=90,
+                shadow=False
             )
-            
-            table.auto_set_font_size(False)
-            table.set_fontsize(8)
-            table.scale(1, 1.5)
-            
-            # Estilo de la tabla
-            for (i, j), cell in table.get_celld().items():
-                if i == 0:  # Encabezados
-                    cell.set_facecolor('#4CAF50')
-                    cell.set_text_props(weight='bold', color='white')
-                elif i % 2 == 0:  # Filas pares
-                    cell.set_facecolor('#f0f0f0')
-            
-            ax.set_title(title, fontsize=14, fontweight='bold', pad=20)
+
+            for autotext in autotexts:
+                autotext.set_color('white')
+                autotext.set_fontweight('bold')
+
+            ax.set_title(f"{title}\n(Distribución)", fontsize=14, fontweight='bold')
+            ax.axis('equal')
+
             return True
-            
+
         except Exception as e:
-            self.logger.error(f"Error creando tabla: {e}")
+            self.logger.error(f"Error en gráfico de torta adaptativo: {e}")
             return False
+
+    def _format_y_axis(self, ax, series: pd.Series):
+        """Formatear eje Y para mejor legibilidad"""
+        if series.empty:
+            return
+
+        max_val = series.max()
+        if max_val >= 1e6:
+            ax.yaxis.set_major_formatter(
+                plt.FuncFormatter(lambda x, p: f'{x / 1e6:.1f}M')
+            )
+        elif max_val >= 1000:
+            ax.yaxis.set_major_formatter(
+                plt.FuncFormatter(lambda x, p: f'{x / 1e3:.0f}K')
+            )
+        else:
+            ax.yaxis.set_major_formatter(
+                plt.FuncFormatter(lambda x, p: f'{x:.0f}')
+            )
+
+    # ===== Métodos auxiliares que faltaban =====
+
+    def _preprocess_data_for_chart(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Preprocesar datos para los gráficos (añadir mes_display, limpiar textos, etc.)"""
+        df_proc = df.copy()
+        if 'YM' in df_proc.columns and 'mes_display' not in df_proc.columns:
+            df_proc['mes_display'] = df_proc['YM'].apply(self._format_month)
+        return df_proc
+
+    def _clean_text(self, text: str) -> str:
+        """Limpieza básica de etiquetas"""
+        if text is None:
+            return ""
+        return str(text).replace('_', ' ').strip()
+
+    def _format_month(self, ym: str) -> str:
+        """Formatear 'YYYY-MM' a 'Mes-YYYY' en corto (Ene-2024, etc.)"""
+        try:
+            dt = datetime.strptime(ym, "%Y-%m")
+            months_es = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
+                         "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+            return f"{months_es[dt.month - 1]}-{dt.year}"
+        except Exception:
+            return ym
+
+    def _create_table_display(self, df: pd.DataFrame, ax, title: str) -> bool:
+        """Mostrar los datos en forma de tabla (hasta 30 filas)"""
+        ax.axis('off')
+        ax.set_title(title, fontsize=14, fontweight='bold')
+
+        table_df = df.head(30)
+        tbl = ax.table(
+            cellText=table_df.values,
+            colLabels=table_df.columns,
+            loc='center'
+        )
+        tbl.auto_set_font_size(False)
+        tbl.set_fontsize(8)
+        tbl.auto_set_column_width(col=list(range(len(table_df.columns))))
+        return True
+
+
+# ========== FRONTUR LLM AGENT ==========
 
 class FronturLLMAgent:
-   
-    def __init__(self, db_path: str, openai_api_key: str, config_path: str = "frontur_agent_config.json", metadata_path: str = "frontur_metadata_completo.json", examples_path: str = "ejemplos.json"):
-        
-        # Convertir a ruta absoluta y verificar
-
+    def __init__(
+        self,
+        db_path: str,
+        openai_api_key: str,
+        config_path: str = "frontur_agent_config.json",
+        metadata_path: str = "frontur_metadata_completo.json",
+        examples_path: str = "ejemplos.json"
+    ):
         self.db_path = os.path.abspath(db_path)
         print(f"📁 Conectando a base de datos: {self.db_path}")
-        
+
         if not os.path.exists(self.db_path):
             raise FileNotFoundError(f"❌ No se encuentra la base de datos: {self.db_path}")
-        
+
         self.client = OpenAI(api_key=openai_api_key)
         self.connection = sqlite3.connect(self.db_path)
 
-        base_dir = os.path.dirname(os.path.abspath(__file__))  # carpeta del script
-
+        base_dir = os.path.dirname(os.path.abspath(__file__))
         config_path = os.path.join(base_dir, "frontur_agent_config.json")
         metadata_path = os.path.join(base_dir, "frontur_metadata_completo.json")
         examples_path = os.path.join(base_dir, "ejemplos.json")
 
-
-
-        
         self.config = self.load_config(config_path)
         self.metadata = self.load_metadata(metadata_path)
         self.examples = self.load_examples(examples_path)
-        
+
         self.setup_logging()
-        
-        self.sql_generator = SQLGenerator(self.client, self.config, self.metadata, self.examples)
+
         self.query_executor = QueryExecutor(self.connection, self.logger)
+        self.sql_generator = SQLGenerator(self.client, self.config, self.metadata, self.examples)
         self.visualizer = Visualizer(self.logger)
-        
+
         print("✅ Agente FRONTUR inicializado correctamente")
-    
+
     def load_config(self, path: str) -> dict:
         if not os.path.exists(path):
-         print(f"⚠️ Archivo de configuración no encontrado: {path}")
-         return {}
+            print(f"⚠️ Archivo de configuración no encontrado: {path}")
+            return {}
         with open(path, "r", encoding="utf-8") as f:
-         return json.load(f)
+            return json.load(f)
 
-
-    def load_metadata(self, path: str) -> dict | list:
+    def load_metadata(self, path: str) -> Union[dict, list]:
         if not os.path.exists(path):
-          print(f"⚠️ Archivo de metadatos no encontrado: {path}")
-          return {}
+            print(f"⚠️ Archivo de metadatos no encontrado: {path}")
+            return {}
         with open(path, "r", encoding="utf-8") as f:
-          return json.load(f)
-
+            return json.load(f)
 
     def load_examples(self, path: str) -> list:
         if not os.path.exists(path):
-          print(f"⚠️ Archivo de ejemplos no encontrado: {path}")
-          return []
+            print(f"⚠️ Archivo de ejemplos no encontrado: {path}")
+            return []
         with open(path, "r", encoding="utf-8") as f:
-          return json.load(f)        
-    
+            return json.load(f)
+
     def setup_logging(self):
         logging.basicConfig(
             level=logging.INFO,
@@ -900,70 +1008,246 @@ class FronturLLMAgent:
             ]
         )
         self.logger = logging.getLogger(__name__)
-    
+
     def process_query(self, natural_query: str) -> Dict:
         self.logger.info(f"Procesando consulta: {natural_query}")
-        
+
         try:
-            llm_result = self.sql_generator.generate_sql(natural_query)
-            
+            # 1) Añadir contexto temporal calculado (si aplica)
+            query_with_time = self._augment_query_with_time_context(natural_query)
+            self.logger.info(f"Consulta enviada al LLM (con contexto temporal si aplica): {query_with_time}")
+
+            # 2) Generar SQL con el LLM
+            llm_result = self.sql_generator.generate_sql(query_with_time)
+            self.logger.info(f"Respuesta del LLM: {llm_result}")
+
             if not llm_result.get('sql'):
                 return {
                     'success': False,
                     'error': f"No se pudo generar SQL: {llm_result.get('explanation', 'Error desconocido')}",
-                    'data': None,
-                    'chart_created': False
+                    'data': None
                 }
-            
+
+            # 3) Ejecutar SQL
             df, error = self.query_executor.execute_sql(llm_result['sql'])
-            
+
             if error:
                 return {
                     'success': False,
                     'error': error,
-                    'data': None,
-                    'chart_created': False
+                    'data': None
                 }
-            
-            chart_created = False
-            if not df.empty and llm_result.get('chart_type'):
-                chart_title = f"Resultado: {natural_query}"
-                chart_created = self.visualizer.create_chart(df, llm_result['chart_type'], chart_title)
-            
+
             return {
                 'success': True,
                 'data': df,
                 'sql_generated': llm_result['sql'],
-                'explanation': llm_result.get('explanation', ''),
-                'chart_created': chart_created,
-                'chart_type': llm_result.get('chart_type')
+                'explanation': llm_result.get('explanation', '')
             }
-            
+
         except Exception as e:
             error_msg = f"Error procesando consulta: {e}"
             self.logger.error(error_msg)
             return {
                 'success': False,
                 'error': error_msg,
-                'data': None,
-                'chart_created': False
+                'data': None
             }
+
     
+
+
+
+    # ===== Utilidades de periodo relativo (ahora como métodos de la clase) =====
+
+    
+    def get_last_period_from_db(self) -> str:
+        """Obtener el último período disponible de la base de datos."""
+        try:
+            query = "SELECT MAX(YM) as ultimo_periodo FROM frontur WHERE ENCUESTA IS NOT NULL"
+            df, error = self.query_executor.execute_sql(query)
+
+            if error:
+                self.logger.error(f"Error SQL al obtener último período: {error}")
+
+            if (df is not None) and (not df.empty) and ('ultimo_periodo' in df.columns):
+                last_period = df['ultimo_periodo'].iloc[0]
+                print(f"📅 Último período en BD: {last_period}")
+                return last_period
+            else:
+                print("⚠️  No se pudo obtener último período, usando 2025-08 por defecto")
+                return "2025-08"
+
+        except Exception as e:
+            self.logger.error(f"Error obteniendo último período: {e}")
+            return "2025-08"
+
+    # ===== Modo interactivo y utilidades =====
+
+          # ===== Cálculo de períodos relativos =====
+
+    def get_relative_months(self, base_period: str, months: int) -> List[str]:
+        """
+        Devuelve `months` meses ANTERIORES a base_period, excluyendo base_period,
+        en orden cronológico.
+        """
+        try:
+            year, month = map(int, base_period.split('-'))
+            base_index = year * 12 + (month - 1)
+
+            periods = []
+            for idx in range(base_index - months, base_index):
+                y = idx // 12
+                m = idx % 12 + 1
+                periods.append(f"{y}-{m:02d}")
+
+            return periods
+        except Exception as e:
+            self.logger.error(f"Error calculando meses relativos: {e}")
+            return []
+
+    def get_relative_years(self, base_period: str, years: int) -> List[str]:
+        """
+        Devuelve `years` AÑOS anteriores al año de base_period, excluyendo el año base,
+        en orden ascendente.
+        Ej: base_period=2025-08, years=5 -> ['2020','2021','2022','2023','2024']
+        """
+        try:
+            base_year = int(base_period.split('-')[0])
+            return [str(y) for y in range(base_year - years, base_year)]
+        except Exception as e:
+            self.logger.error(f"Error calculando años relativos: {e}")
+            return []
+
+    def _compute_time_context(self, prompt: str, base_period: str) -> Dict:
+        """
+        Detecta en el texto del usuario si habla de:
+        - evolución mensual en los últimos N años  -> N*12 meses
+        - evolución mensual en los últimos N meses -> N meses
+        - evolución anual  en los últimos N años  -> N años
+
+        Devuelve un dict con:
+          {
+            'modo': 'mensual' | 'anual' | None,
+            'unidad': 'años' | 'meses' | None,
+            'cantidad': int | None,
+            'periodos': List[str]  # YM o años
+          }
+        """
+        ctx = {
+            'modo': None,
+            'unidad': None,
+            'cantidad': None,
+            'periodos': []
+        }
+
+        try:
+            p = prompt.lower()
+
+            match_years = re.search(r'últimos?\s+(\d+)\s+años?', p)
+            match_months = re.search(r'últimos?\s+(\d+)\s+meses?', p)
+
+            n_years = int(match_years.group(1)) if match_years else None
+            n_months = int(match_months.group(1)) if match_months else None
+
+            # Evolución anual ... últimos N años
+            if ("evolución anual" in p or "evolucion anual" in p) and n_years:
+                ctx['modo'] = 'anual'
+                ctx['unidad'] = 'años'
+                ctx['cantidad'] = n_years
+                ctx['periodos'] = self.get_relative_years(base_period, n_years)
+                return ctx
+
+            # Evolución mensual ... últimos N años  -> N*12 meses
+            if ("evolución mensual" in p or "evolucion mensual" in p) and n_years:
+                ctx['modo'] = 'mensual'
+                ctx['unidad'] = 'años'
+                ctx['cantidad'] = n_years
+                total_months = n_years * 12
+                ctx['periodos'] = self.get_relative_months(base_period, total_months)
+                return ctx
+
+            # Evolución mensual ... últimos N meses
+            if ("evolución mensual" in p or "evolucion mensual" in p) and n_months:
+                ctx['modo'] = 'mensual'
+                ctx['unidad'] = 'meses'
+                ctx['cantidad'] = n_months
+                ctx['periodos'] = self.get_relative_months(base_period, n_months)
+                return ctx
+
+            return ctx
+
+        except Exception as e:
+            self.logger.error(f"Error analizando contexto temporal: {e}")
+            return ctx
+
+    def _augment_query_with_time_context(self, natural_query: str) -> str:
+        """
+        Añade una 'NOTA DEL AGENTE' al texto del usuario con los periodos
+        concretos (años o meses) ya calculados, para que el LLM solo los use.
+        """
+        try:
+            base_period = self.get_last_period_from_db()  # o '2025-08' fijo si prefieres
+            ctx = self._compute_time_context(natural_query, base_period)
+
+            if not ctx['periodos']:
+                return natural_query  # no hay nada que añadir
+
+            if ctx['modo'] == 'mensual':
+                nota = (
+                    f"\n\nNOTA DEL AGENTE: usar exactamente estos meses (YM) ya calculados "
+                    f"respecto al último período {base_period}: "
+                    + ", ".join(ctx['periodos'])
+                )
+            elif ctx['modo'] == 'anual':
+                nota = (
+                    f"\n\nNOTA DEL AGENTE: usar exactamente estos años ya calculados "
+                    f"respecto al último período {base_period}: "
+                    + ", ".join(ctx['periodos'])
+                )
+            else:
+                return natural_query
+
+            return natural_query + nota
+
+        except Exception as e:
+            self.logger.error(f"Error añadiendo nota de contexto temporal: {e}")
+            return natural_query
+
+
+    def ask_chart_type(self, df: pd.DataFrame) -> str:
+        """Preguntar al usuario qué tipo de gráfico prefiere"""
+        available_types = self.visualizer.get_available_chart_types(df)
+
+        print(f"\n📊 FORMATOS DISPONIBLES para estos datos:")
+        for i, chart_type in enumerate(available_types, 1):
+            print(f"   {i}. {chart_type.capitalize()}")
+
+        while True:
+            try:
+                choice = input(f"\n🎨 Elige formato (1-{len(available_types)}): ").strip()
+                if choice.isdigit():
+                    index = int(choice) - 1
+                    if 0 <= index < len(available_types):
+                        return available_types[index]
+                print("❌ Opción no válida. Intenta de nuevo.")
+            except KeyboardInterrupt:
+                return 'tabla'
+            except Exception as e:
+                print(f"❌ Error: {e}")
+                return 'tabla'
+
     def interactive_mode(self):
         print("🏨 AGENTE LLM FRONTUR - SISTEMA DE CONSULTAS TURÍSTICAS")
         print("=" * 70)
         print("Escribe tu consulta en español o 'salir' para terminar")
         print("Comandos especiales: 'ejemplos', 'estadisticas'")
-        print("\n💡 CONSULTAS SUGERIDAS:")
-        print("   📈 Línea: 'Evolución anual de turistas italianos desde 2020'")
-        print("   🥧 Tarta: 'Distribución de turistas por comunidades autónomas'")
-        print("   📊 Barras: 'Top 5 países con más turistas en 2024'")
         print()
-        
+
         while True:
             try:
                 query = input("🔍 Tu consulta: ").strip()
-                
+
                 if query.lower() in ['salir', 'exit', 'quit']:
                     print("👋 ¡Hasta pronto!")
                     break
@@ -976,62 +1260,61 @@ class FronturLLMAgent:
                 else:
                     result = self.process_query(query)
                     self.display_results(result)
-                    
+
             except KeyboardInterrupt:
                 print("\n👋 ¡Hasta pronto!")
                 break
             except Exception as e:
                 print(f"❌ Error: {e}")
-    
+
     def display_results(self, result: Dict):
         if result['success']:
             print(f"\n✅ CONSULTA EXITOSA")
             print(f"📊 Resultados ({len(result['data'])} filas):")
             print(result['data'].to_string(index=False))
-            
+
             if result.get('explanation'):
                 print(f"\n💡 Explicación: {result['explanation']}")
-            
-            if result['chart_created']:
-                print(f"📈 Gráfico {result['chart_type']} generado correctamente")
-            else:
-                print("📋 Resultados mostrados en tabla (gráfico no generado)")
-                
+
+            if result['data'] is not None and not result['data'].empty:
+                chart_type = self.ask_chart_type(result['data'])
+                chart_title = f"Resultado: {result.get('explanation', 'Consulta')}"
+
+                print(f"\n🎨 Generando gráfico: {chart_type}...")
+                chart_created = self.visualizer.create_chart(
+                    result['data'],
+                    chart_type,
+                    chart_title
+                )
+
+                if chart_created:
+                    print(f"✅ Gráfico {chart_type} generado correctamente")
+                else:
+                    print("❌ No se pudo generar el gráfico solicitado")
+
             print(f"\n🔍 SQL ejecutado: {result['sql_generated']}")
         else:
             print(f"\n❌ ERROR: {result['error']}")
-    
+
     def show_examples(self):
         print("\n📚 EJEMPLOS DE CONSULTAS:")
-        examples_by_type = {
-            "📈 Gráficos de Línea": [
-                "Evolución mensual de turistas franceses en Madrid",
-                "Turistas italianos por año desde 2020",
-                "Serie temporal de turistas en Cataluña"
-            ],
-            "🥧 Gráficos de Tarta": [
-                "Distribución de turistas por comunidades autónomas",
-                "Desglose de turistas por motivo de viaje", 
-                "Porcentaje de turistas por tipo de alojamiento"
-            ],
-            "📊 Gráficos de Barras": [
-                "Top 5 países con más turistas en 2024",
-                "Principales comunidades autónomas por turistas",
-                "Ranking de tipos de alojamiento más usados"
-            ]
-        }
-        
-        for chart_type, examples in examples_by_type.items():
-            print(f"\n{chart_type}:")
-            for i, example in enumerate(examples):
-                print(f"   {i+1}. {example}")
+        examples = [
+            "Evolución mensual de turistas franceses en Madrid",
+            "Top 5 países con más turistas en 2024",
+            "Distribución de turistas por comunidades autónomas",
+            "Turistas alemanes en Canarias últimos 3 años",
+            "Comparación de turistas italianos 2023 vs 2024",
+        ]
+
+        for i, example in enumerate(examples, 1):
+            print(f"   {i}. {example}")
         print()
-    
+
     def show_statistics(self):
         if not self.metadata:
             print("❌ No se cargaron los metadatos")
             return
-            
+
         stats = self.metadata['statistics']
         print(f"\n📊 ESTADÍSTICAS FRONTUR:")
         print(f"   • Total de registros: {stats['total_records']:,}")
@@ -1039,46 +1322,35 @@ class FronturLLMAgent:
         print(f"   • Total de turistas: {stats['total_turistas']:,.0f}")
         print(f"   • Países únicos: {self.metadata['column_values']['PAIS_RESIDENCIA']['total_unique']}")
         print(f"   • CCAA únicas: {self.metadata['column_values']['CCAA_DESTINO']['total_unique']}")
-        print(f"   • Motivos de viaje: {self.metadata['column_values']['MOTIVO_VIAJE']['total_unique']}")
-    
+
     def close(self):
         if self.connection:
             self.connection.close()
 
+
 def main():
     DB_PATH = r"C:\DataEstur_Data\dataestur.db"
+
     load_dotenv()
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-    client = OpenAI(api_key=OPENAI_API_KEY)
+
     try:
         print("🚀 Iniciando Agente LLM FRONTUR...")
         print(f"📁 Base de datos: {DB_PATH}")
-        
-        # Verificar que la base de datos existe
+
         if not os.path.exists(DB_PATH):
             print(f"❌ ERROR: No se encuentra la base de datos en {DB_PATH}")
-            print("💡 Verifica la ruta del archivo dataestur.db")
             return
-        
+
         agent = FronturLLMAgent(DB_PATH, OPENAI_API_KEY)
-        
-        if not agent.config:
-            print("⚠️  No se pudo cargar la configuración")
-        if not agent.metadata:
-            print("⚠️  No se pudo cargar los metadatos")
-        if not agent.examples:
-            print("⚠️  No se pudo cargar los ejemplos")
-        
         agent.interactive_mode()
-        
-    except sqlite3.OperationalError as e:
-        print(f"❌ Error de base de datos: {e}")
-        print(f"   Verifica que la ruta {DB_PATH} sea correcta")
+
     except Exception as e:
         print(f"❌ Error inesperado: {e}")
     finally:
         if 'agent' in locals():
             agent.close()
+
 
 if __name__ == "__main__":
     main()
